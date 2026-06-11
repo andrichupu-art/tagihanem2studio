@@ -405,25 +405,7 @@
 
             <div class="w-full px-4 mt-5 flex-1 flex flex-col gap-4">
 
-            <!-- Periode Filter Mingguan -->
-            <div class="p-4 rounded-2xl border-4 border-white shadow-xl space-y-3" style="background:linear-gradient(to right,#FF7315,#ffb800);">
-                <p class="text-xs font-black text-black uppercase tracking-wider">📅 Filter Periode Mingguan</p>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-black uppercase mb-1.5">Dari (Senin)</label>
-                        <input type="date" id="riwayat-date-start" onchange="filterRiwayatByPeriode()" class="w-full px-4 py-3.5 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-black uppercase mb-1.5">Sampai (Minggu)</label>
-                        <input type="date" id="riwayat-date-end" onchange="filterRiwayatByPeriode()" class="w-full px-4 py-3.5 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800">
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="setWeekPrev()" class="flex-1 bg-white/30 hover:bg-white/40 border-2 border-white text-black font-bold py-3 px-3 rounded-xl text-xs click-feedback transition-all">◀ Minggu Lalu</button>
-                    <button onclick="setWeekCurrent()" class="flex-1 bg-white/30 hover:bg-white/40 border-2 border-white text-black font-bold py-3 px-3 rounded-xl text-xs click-feedback transition-all">📅 Minggu Ini</button>
-                </div>
-                <div id="riwayat-periode-label" class="text-center text-xs font-bold text-black bg-white/30 py-2 rounded-xl"></div>
-            </div>
+
 
             <!-- Tabel Per Vendor -->
             <div id="riwayat-vendor-tables" class="space-y-3">
@@ -789,7 +771,7 @@
             }
             document.getElementById(`page-${targetPage}`).classList.remove('hidden');
             if (targetPage === 'riwayat') { 
-                Promise.all([loadTransaksiFromSupabase(), loadDpFromSupabase(), loadKasbonFromSupabase()]).then(() => setWeekCurrent());
+                Promise.all([loadTransaksiFromSupabase(), loadDpFromSupabase(), loadKasbonFromSupabase()]).then(() => renderRiwayat());
             }
             if (targetPage === 'cetak') {
                 Promise.all([loadTransaksiFromSupabase(), loadDpFromSupabase(), loadKasbonFromSupabase()]).then(() => initCetakPage());
@@ -1332,16 +1314,14 @@
         // ===== TANDAI LUNAS =====
         async function tandaiLunas(vendorName, vi) {
             const fmt = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
-            const start = document.getElementById('riwayat-date-start').value;
-            const end = document.getElementById('riwayat-date-end').value;
-            const vendorTrx = riwayatData.filter(t => t.vendor===vendorName && t.tanggal>=start && t.tanggal<=end && !t.lunas);
+            const vendorTrx = riwayatData.filter(t => t.vendor===vendorName && !t.lunas);
             if (vendorTrx.length === 0) return;
 
             // Hitung total bruto dari transaksi
             const totalBruto = vendorTrx.reduce((s,t) => s + t.qty*t.harga, 0);
 
-            // Ambil DP dari tabel dp_invoice untuk vendor ini (periode aktif)
-            const vendorDp = dpData.filter(d => d.vendor === vendorName && d.tanggal >= start && d.tanggal <= end);
+            // Ambil DP dari tabel dp_invoice untuk vendor ini (belum punya sesi_id)
+            const vendorDp = dpData.filter(d => d.vendor === vendorName && !d.sesi_id);
             const totalDp = vendorDp.reduce((s,d) => s + (d.jumlah||0), 0);
 
             // Ambil kasbon aktif dari tabel kasbon untuk vendor ini
@@ -1378,11 +1358,11 @@
                 // Tandai kasbon aktif vendor ini sebagai lunas, dan carry over sisa ke sesi baru
                 if (vendorKasbon.length > 0) {
                     await supabaseClient.from('kasbon')
-                        .update({ lunas: true })
+                        .update({ lunas: true, sesi_id: sesiId })
                         .in('id', vendorKasbon.map(k => k.id));
                     vendorKasbon.forEach(k => {
                         const idx = kasbonData.findIndex(x => x.id === k.id);
-                        if (idx !== -1) kasbonData[idx].lunas = true;
+                        if (idx !== -1) { kasbonData[idx].lunas = true; kasbonData[idx].sesi_id = sesiId; }
                     });
                     // Carry over sisa kasbon ke sesi baru (jika masih ada hutang)
                     if (sisaKasbon > 0) {
@@ -1409,7 +1389,7 @@
                 if (sisaKasbon > 0) {
                     showNotif('info','⚠️ Sisa Kasbon', vendorName + ' masih punya sisa kasbon ' + fmt(sisaKasbon), 5000);
                 }
-                filterRiwayatByPeriode();
+                renderRiwayat(vendorName, true);
             } catch(err) {
                 showNotif('error','Gagal', err.message);
             }
@@ -1627,12 +1607,26 @@
             }
             const dpVal = dpSesiRows.reduce((s,d) => s + (d.jumlah||0), 0);
 
-            // Kasbon aktif (belum lunas) = yang relevan untuk sesi ini
-            const vendorKasbonAktif = kasbonData.filter(k => k.vendor === vendor && !k.lunas);
-            const totalKasbonAwal = vendorKasbonAktif.reduce((s,k) => s + (k.jumlah||0), 0);
-            // Cicilan = yang diinput di Riwayat Data (field cicilan di kasbon aktif)
-            const totalKasbonBayar = vendorKasbonAktif.reduce((s,k) => s + (k.cicilan||0), 0);
-            // Sisa kasbon = jumlah awal - cicilan yang dibayar
+            // Kasbon sesi ini: by sesi_id dulu, fallback by vendor+tanggal overlap
+            let vendorKasbonSesi = sesiIdVal
+                ? kasbonData.filter(k => k.vendor === vendor && k.sesi_id === sesiIdVal)
+                : [];
+            if (vendorKasbonSesi.length === 0) {
+                const firstDate = rows[0].tanggal;
+                const lastDate  = rows[rows.length - 1].tanggal;
+                // Sesi lunas: cari kasbon lunas by tanggal overlap
+                vendorKasbonSesi = kasbonData.filter(k =>
+                    k.vendor === vendor && k.lunas && k.tanggal >= firstDate && k.tanggal <= lastDate
+                );
+                // Sesi aktif atau masih kosong: cari kasbon aktif (!lunas)
+                if (vendorKasbonSesi.length === 0) {
+                    vendorKasbonSesi = kasbonData.filter(k =>
+                        k.vendor === vendor && !k.lunas
+                    );
+                }
+            }
+            const totalKasbonAwal = vendorKasbonSesi.reduce((s,k) => s + (k.jumlah||0), 0);
+            const totalKasbonBayar = vendorKasbonSesi.reduce((s,k) => s + (k.cicilan||0), 0);
             const sisaKasbonCarryOver = totalKasbonAwal - totalKasbonBayar;
             const sisaKasbonBersih = sisaKasbonCarryOver > 0 ? sisaKasbonCarryOver : 0;
 
@@ -1815,7 +1809,8 @@
                         vendor: r.vendor,
                         jumlah: r.jumlah || 0,
                         cicilan: r.cicilan || 0,
-                        lunas: r.lunas || false
+                        lunas: r.lunas || false,
+                        sesi_id: r.sesi_id || null
                     }));
                 }
             } catch (err) { console.log('loadKasbon error:', err); }
@@ -1857,26 +1852,7 @@
             return d;
         }
         function formatDateInput(date) { return date.toISOString().split('T')[0]; }
-        function formatDateLabel(date) {
-            return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        }
-        function setWeekRange(baseDate) {
-            const monday = getMondayOfWeek(baseDate);
-            const sunday = new Date(monday);
-            sunday.setDate(monday.getDate() + 6);
-            document.getElementById('riwayat-date-start').value = formatDateInput(monday);
-            document.getElementById('riwayat-date-end').value = formatDateInput(sunday);
-            document.getElementById('riwayat-periode-label').textContent =
-                formatDateLabel(monday) + '  —  ' + formatDateLabel(sunday);
-            filterRiwayatByPeriode();
-        }
-        function setWeekCurrent() { setWeekRange(new Date()); }
-        function setWeekPrev() {
-            const start = document.getElementById('riwayat-date-start').value;
-            const base = start ? new Date(start) : new Date();
-            base.setDate(base.getDate() - 7);
-            setWeekRange(base);
-        }
+
         // track open vendor index
         let openVendorIndex = null;
 
@@ -2105,13 +2081,14 @@
             if (!trx) return;
             if (trx.lunas) { showNotif('warning', 'Tidak Bisa Dihapus', 'Transaksi sudah LUNAS tidak bisa dihapus!'); return; }
             if (!confirm('Hapus transaksi ' + trx.jenis + ' (' + trx.qty + ' pcs) untuk ' + trx.vendor + '?')) return;
+            const vendorName = trx.vendor;
             try {
                 const { error } = await supabaseClient.from('transaksi_invoice').delete().eq('id', id);
                 if (error) throw error;
                 const idx = riwayatData.findIndex(t => t.id == id);
                 if (idx !== -1) riwayatData.splice(idx, 1);
                 showNotif('success', 'Terhapus!', trx.jenis + ' · ' + trx.vendor, 2500);
-                filterRiwayatByPeriode();
+                renderRiwayat(vendorName, false);
             } catch(e) {
                 showNotif('error', 'Gagal Hapus', e.message);
             }
@@ -2179,24 +2156,20 @@
                 if (idx !== -1) { riwayatData[idx].jenis = newJenis; riwayatData[idx].harga = newHarga; }
                 showNotif('success', 'Jenis Diperbarui ✅', newJenis + ' · ' + fmt(newHarga) + ' / pcs', 3000);
                 closeEditJenisOverlay();
-                filterRiwayatByPeriode();
+                renderRiwayat(trx.vendor, trx.lunas);
             } catch(e) {
                 showNotif('error', 'Gagal Update', e.message);
             }
         }
 
-                function filterRiwayatByPeriode() {
-            const start = document.getElementById('riwayat-date-start').value;
-            const end   = document.getElementById('riwayat-date-end').value;
-            if (!start || !end) return;
+        function renderRiwayat(keepOpenVendor, keepOpenLunas) {
             openVendorIndex = null;
-            const filtered = riwayatData.filter(t => t.tanggal >= start && t.tanggal <= end);
+            const allSorted = [...riwayatData].sort((a, b) => a.id - b.id);
 
             vendorMeta = {};
 
             const grouped = {};
-            const filteredSorted = [...filtered].sort((a, b) => a.id - b.id);
-            filteredSorted.forEach(t => {
+            allSorted.forEach(t => {
                 if (!grouped[t.vendor]) grouped[t.vendor] = [];
                 grouped[t.vendor].push(t);
             });
@@ -2206,7 +2179,7 @@
             let grandTotal = 0;
             const vendors = Object.keys(grouped);
             if (vendors.length === 0) {
-                container.innerHTML = '<div class="bg-white p-6 rounded-2xl text-center text-gray-400 text-xs font-bold border border-gray-100 shadow-sm">Tidak ada transaksi pada periode ini.</div>';
+                container.innerHTML = '<div class="bg-white p-6 rounded-2xl text-center text-gray-400 text-xs font-bold border border-gray-100 shadow-sm">Belum ada transaksi.</div>';
                 document.getElementById('riwayat-summary').classList.add('hidden');
                 return;
             }
@@ -2307,14 +2280,32 @@
                         const dpSesi = dpData.filter(d => d.vendor === vendor && d.tanggal >= firstDate && d.tanggal <= lastDate);
                         dpVal = dpSesi.reduce((s,d) => s + (d.jumlah||0), 0);
                     }
-                    const kasbonAktifLunas = kasbonData.filter(k => k.vendor === vendor && !k.lunas);
+                    // Cari kasbon: by sesi_id jika ada, fallback by vendor+tanggal overlap
+                    let kasbonAktifLunas = sesiIdRow
+                        ? kasbonData.filter(k => k.vendor === vendor && k.sesi_id === sesiIdRow)
+                        : [];
+                    if (kasbonAktifLunas.length === 0) {
+                        // Fallback: kasbon lunas milik vendor ini yang tanggalnya overlap dengan sesi
+                        const firstDate = rows[0].tanggal;
+                        const lastDate  = rows[rows.length - 1].tanggal;
+                        kasbonAktifLunas = kasbonData.filter(k =>
+                            k.vendor === vendor && k.lunas && k.tanggal >= firstDate && k.tanggal <= lastDate
+                        );
+                        // Jika masih kosong, ambil kasbon lunas vendor terdekat sebelum tgl_lunas
+                        if (kasbonAktifLunas.length === 0 && rows[0].tgl_lunas) {
+                            const tglLunas = rows[0].tgl_lunas;
+                            kasbonAktifLunas = kasbonData.filter(k =>
+                                k.vendor === vendor && k.lunas && k.tanggal <= tglLunas
+                            ).sort((a,b) => b.tanggal.localeCompare(a.tanggal)).slice(0, 1);
+                        }
+                    }
                     const totalJumlahL = kasbonAktifLunas.reduce((s,k) => s + (k.jumlah||0), 0);
                     const totalCicilanL = kasbonAktifLunas.reduce((s,k) => s + (k.cicilan||0), 0);
                     const sisaKasbonL = Math.max(0, totalJumlahL - totalCicilanL);
                     kasbonAwal = totalJumlahL;
                     kasbonCicilan = totalCicilanL;
-                    if (sisaKasbonL > 0 && kasbonAktifLunas.length > 0) {
-                        kasbonVal = sisaKasbonL;
+                    if (totalJumlahL > 0) {
+                        kasbonVal = totalJumlahL;
                         kasbonId = kasbonAktifLunas[0].id;
                     }
                     kasbonUsed = totalCicilanL;
@@ -2350,30 +2341,45 @@
 
                 let kasbonRowHtml = '';
                 if (kasbonVal > 0) {
-                    kasbonRowHtml =
-                      '<tr class="border-t border-red-100 bg-red-50/40" id="kasbon-row-' + vi + '">' +
-                      '<td colspan="3" class="py-3 px-3">' +
-                      '<span class="text-[11px] font-black text-red-500 uppercase tracking-wide">KASBON AWAL: ' + fmt(kasbonAwal) + ' | SISA: </span>' +
-                      '<span class="text-[11px] font-black text-red-500" id="kasbon-sisa-' + vi + '">' + fmt(kasbonVal) + '</span>' +
-                      '</td>' +
-                      '<td colspan="2" class="py-3 px-3 text-right">' +
-                      '<span onclick="autoSaveKasbon(' + vi + ')" ' +
-                      'class="cursor-pointer text-[11px] font-black text-red-500 uppercase tracking-wide hover:text-red-700 active:opacity-70 transition-all" style="white-space:nowrap">Cicilan</span>' +
-                      '</td>' +
-                      '<td class="py-3 px-3 text-right">' +
-                      '<input type="text" inputmode="numeric" ' +
-                      'id="kasbon-input-' + vi + '" data-vi="' + vi + '" data-vendor="' + vendor.replace(/'/g,"&#39;") + '" data-kasbon="' + kasbonVal + '" data-kasbon-max="' + maxCicilanInput + '" data-kasbon-id="' + kasbonId + '" data-raw="' + kasbonCicilan + '" ' +
-                      'value="' + (kasbonCicilan > 0 ? new Intl.NumberFormat('id-ID').format(kasbonCicilan) : '') + '" ' +
-                      'placeholder="0" ' +
-                      'oninput="formatKasbonInput(this,' + vi + ')" ' +
-                      'class="kasbon-cicilan-input w-28 text-right text-[10px] font-black text-red-700 border-2 border-red-200 rounded-lg py-1 px-2 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white">' +
-                      '</td></tr>';
+                    if (isLunasBlock) {
+                        const sudahLunasPenuh = kasbonCicilan >= kasbonAwal;
+                        kasbonRowHtml =
+                          '<tr class="border-t border-red-100 bg-red-50/40" id="kasbon-row-' + vi + '">' +
+                          '<td colspan="5" class="py-2 px-3 text-right text-[10px] font-black text-red-500 uppercase tracking-wide">' +
+                          'KASBON: ' + fmt(kasbonAwal) +
+                          (kasbonCicilan > 0 ? ' | DIBAYAR: ' + fmt(kasbonCicilan) : '') +
+                          (sudahLunasPenuh ? ' ✓ LUNAS' : ' | SISA: ' + fmt(kasbonAwal - kasbonCicilan)) +
+                          '</td>' +
+                          '<td class="py-2 px-3 text-right text-[10px] font-black text-red-600">-' + fmt(kasbonCicilan) + '</td>' +
+                          '</tr>';
+                    } else {
+                        kasbonRowHtml =
+                          '<tr class="border-t border-red-100 bg-red-50/40" id="kasbon-row-' + vi + '">' +
+                          '<td colspan="3" class="py-3 px-3">' +
+                          '<span class="text-[11px] font-black text-red-500 uppercase tracking-wide">KASBON AWAL: ' + fmt(kasbonAwal) + ' | SISA: </span>' +
+                          '<span class="text-[11px] font-black text-red-500" id="kasbon-sisa-' + vi + '">' + fmt(kasbonVal) + '</span>' +
+                          '</td>' +
+                          '<td colspan="2" class="py-3 px-3 text-right">' +
+                          '<span onclick="autoSaveKasbon(' + vi + ')" ' +
+                          'class="cursor-pointer text-[11px] font-black text-red-500 uppercase tracking-wide hover:text-red-700 active:opacity-70 transition-all" style="white-space:nowrap">Cicilan</span>' +
+                          '</td>' +
+                          '<td class="py-3 px-3 text-right">' +
+                          '<input type="text" inputmode="numeric" ' +
+                          'id="kasbon-input-' + vi + '" data-vi="' + vi + '" data-vendor="' + vendor.replace(/'/g,"&#39;") + '" data-kasbon="' + kasbonVal + '" data-kasbon-max="' + maxCicilanInput + '" data-kasbon-id="' + kasbonId + '" data-raw="' + kasbonCicilan + '" ' +
+                          'value="' + (kasbonCicilan > 0 ? new Intl.NumberFormat('id-ID').format(kasbonCicilan) : '') + '" ' +
+                          'placeholder="0" ' +
+                          'oninput="formatKasbonInput(this,' + vi + ')" ' +
+                          'class="kasbon-cicilan-input w-28 text-right text-[10px] font-black text-red-700 border-2 border-red-200 rounded-lg py-1 px-2 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white">' +
+                          '</td></tr>';
+                    }
                 }
-
                 const block = document.createElement('div');
                 block.className = isLunasBlock
                     ? 'bg-white rounded-2xl shadow-sm border border-green-200 overflow-hidden'
                     : 'bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden';
+                block.dataset.vendor = vendor;
+                block.dataset.lunas = isLunasBlock ? '1' : '0';
+                block.dataset.vi = vi;
 
                 const hasDp = dpVal > 0;
                 const hasKasbon = kasbonVal > 0;
@@ -2431,6 +2437,24 @@
             });
             document.getElementById('riwayat-grand-total').textContent = fmt(grandTotal);
             document.getElementById('riwayat-summary').classList.remove('hidden');
+
+            // Restore vendor yang sedang terbuka sebelum render ulang
+            if (keepOpenVendor !== undefined) {
+                const allBlocks = container.querySelectorAll('[data-vendor]');
+                allBlocks.forEach((blk) => {
+                    const isMatch = blk.dataset.vendor === keepOpenVendor &&
+                        blk.dataset.lunas === (keepOpenLunas ? '1' : '0');
+                    if (isMatch) {
+                        const vi = parseInt(blk.dataset.vi);
+                        const tbl = document.getElementById('vendor-table-' + vi);
+                        const arr = document.getElementById('arrow-' + vi);
+                        if (tbl) { tbl.classList.remove('hidden'); }
+                        if (arr) { arr.style.transform = 'rotate(0deg)'; }
+                        openVendorIndex = vi;
+                        setTimeout(() => blk.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+                    }
+                });
+            }
         }
 
         function toggleVendorTable(vi) {
