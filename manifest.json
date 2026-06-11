@@ -1,15 +1,37 @@
 {
   "name": "EM2STUDIO Invoice Generator",
   "short_name": "EM2Invoice",
-  "start_url": "./index.html",
+  "description": "Pembuat Invoice JPEG untuk EM2STUDIO",
+  "start_url": "/tagihanem2studio/",
+  "scope": "/tagihanem2studio/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#FF7315",
-  "theme-color": "#FF7315",
+  "theme_color": "#FF7315",
   "icons": [
     {
-      "src": "icon-512.png",
+      "src": "/tagihanem2studio/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/tagihanem2studio/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/tagihanem2studio/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/tagihanem2studio/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
