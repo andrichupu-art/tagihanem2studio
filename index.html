@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EM2STUDIO - Pembuat Invoice JPEG</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/tagihanem2studio/manifest.json">
     <meta name="theme-color" content="#FF7315">
     <link rel="apple-touch-icon" href="icon-192.png">
     
@@ -2520,6 +2520,15 @@
                 inputKasbon.classList.add('bg-black/10', 'text-white/40');
                 inputKasbon.classList.remove('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-orange-300');
             }
+        }
+
+        // ===== SERVICE WORKER REGISTRATION =====
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/tagihanem2studio/sw.js', { scope: '/tagihanem2studio/' })
+                    .then(reg => console.log('SW registered, scope:', reg.scope))
+                    .catch(err => console.warn('SW registration failed:', err));
+            });
         }
     </script>
 </body>
