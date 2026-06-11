@@ -1,0 +1,2502 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full m-0 p-0">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EM2STUDIO - Pembuat Invoice JPEG</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF7315">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            font-family: 'Nunito', 'Segoe UI', Roboto, sans-serif !important;
+        }
+
+        .bg-brand-orange { background-color: #FF7315; }
+        .text-brand-orange { color: #FF7315; }
+        .bg-brand-yellow { background-color: #FFCC00; }
+        .click-feedback:active { transform: scale(0.98); }
+
+        /* Custom Dropdown */
+        .custom-select-wrapper { position: relative; width: 100%; }
+        .custom-select-trigger {
+            width: 100%; padding: 14px 16px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: white; color: #1f2937; font-size: 1rem;
+            font-weight: 600; cursor: pointer; display: flex;
+            justify-content: space-between; align-items: center;
+            user-select: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        .custom-select-trigger:active { transform: scale(0.99); }
+        .custom-select-trigger .arrow {
+            width: 20px; height: 20px; transition: transform 0.2s;
+            flex-shrink: 0; color: #6b7280;
+        }
+        .custom-select-wrapper.open .arrow { transform: rotate(180deg); }
+        .custom-select-dropdown {
+            display: none; position: absolute; top: calc(100% + 6px);
+            left: 0; right: 0; background: white; border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2); z-index: 100;
+            overflow: hidden; border: 1px solid rgba(0,0,0,0.08);
+            max-height: 220px; overflow-y: auto;
+        }
+        .custom-select-wrapper.open .custom-select-dropdown { display: block; }
+        .custom-select-option {
+            padding: 13px 16px; cursor: pointer; font-size: 0.9rem;
+            font-weight: 600; color: #1f2937; transition: background 0.15s;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .custom-select-option:last-child { border-bottom: none; }
+        .custom-select-option:hover { background: #eff6ff; color: #2563eb; }
+        .custom-select-option.selected { background: #dbeafe; color: #1d4ed8; }
+
+        #notif-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+            width: calc(100% - 32px);
+            max-width: 420px;
+        }
+        .notif-toast {
+            pointer-events: all;
+            border-radius: 20px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 4px 20px rgba(0,0,0,0.15);
+            transform: translateY(-80px) scale(0.85);
+            opacity: 0;
+            transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease;
+            will-change: transform, opacity;
+        }
+        .notif-toast.show {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        .notif-toast.hide {
+            transform: translateY(-40px) scale(0.9);
+            opacity: 0;
+            transition: transform 0.3s ease-in, opacity 0.25s ease-in;
+        }
+        .notif-inner {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 16px 18px 14px 16px;
+            position: relative;
+        }
+        .notif-icon-wrap {
+            width: 46px; height: 46px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .notif-body { flex: 1; min-width: 0; }
+        .notif-label {
+            font-size: 9px; font-weight: 900; letter-spacing: 0.15em;
+            text-transform: uppercase; margin-bottom: 2px; opacity: 0.75;
+        }
+        .notif-title {
+            font-size: 15px; font-weight: 900; line-height: 1.2;
+            margin-bottom: 3px;
+        }
+        .notif-msg {
+            font-size: 11px; font-weight: 600; opacity: 0.8; line-height: 1.4;
+        }
+        .notif-close {
+            width: 28px; height: 28px; border-radius: 8px;
+            border: none; cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 900; flex-shrink: 0;
+            background: rgba(0,0,0,0.12); color: inherit;
+            margin-top: -2px; transition: background 0.15s;
+        }
+        .notif-close:hover { background: rgba(0,0,0,0.22); }
+        .notif-progress {
+            height: 4px; width: 100%;
+            border-radius: 0 0 20px 20px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.1);
+        }
+        .notif-progress-bar {
+            height: 100%; width: 100%;
+            border-radius: 20px;
+            transform-origin: left;
+            transition: transform linear;
+        }
+
+        /* SUCCESS - cyan/blue */
+        .notif-success { background: linear-gradient(135deg, #06b6d4 0%, #2563eb 100%); color: white; }
+        .notif-success .notif-icon-wrap { background: rgba(255,255,255,0.2); }
+        .notif-success .notif-progress-bar { background: rgba(255,255,255,0.6); }
+
+        /* ERROR - red */
+        .notif-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; }
+        .notif-error .notif-icon-wrap { background: rgba(255,255,255,0.2); }
+        .notif-error .notif-progress-bar { background: rgba(255,255,255,0.6); }
+
+        /* WARNING - amber/orange */
+        .notif-warning { background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color: white; }
+        .notif-warning .notif-icon-wrap { background: rgba(255,255,255,0.2); }
+        .notif-warning .notif-progress-bar { background: rgba(255,255,255,0.6); }
+
+        /* INFO - purple */
+        .notif-info { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; }
+        .notif-info .notif-icon-wrap { background: rgba(255,255,255,0.2); }
+        .notif-info .notif-progress-bar { background: rgba(255,255,255,0.6); }
+
+        /* Shimmer efek di success */
+        .notif-success::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            animation: notif-shimmer 1.2s ease 0.4s forwards;
+        }
+        @keyframes notif-shimmer {
+            0% { left: -100%; }
+            100% { left: 150%; }
+        }
+        .notif-inner { position: relative; overflow: hidden; }
+
+        /* ===== FIXED BACK BUTTON BAR ===== */
+        #fixed-back-bar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 500;
+            padding: 12px 16px 20px;
+            max-width: 512px;
+            margin: 0 auto;
+        }
+        #fixed-back-bar.visible { display: block; }
+
+        /* Semua tab pakai warna gradasi sama dengan halaman */
+        #fixed-back-bar.visible { background: linear-gradient(to top, #FF7315 60%, transparent); }
+
+        #fixed-back-btn {
+            width: 100%;
+            font-weight: 900;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 3px solid white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            background: linear-gradient(to right, #FF7315, #ffb800);
+            color: #000000;
+            font-size: 0.85rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.1s;
+        }
+        #fixed-back-btn:active { transform: scale(0.97); opacity: 0.9; }
+
+        /* Padding bawah konten supaya tidak tertutup tombol back */
+        #page-input > div { padding-bottom: 90px !important; }
+        #page-riwayat > div.w-full.px-4 { padding-bottom: 90px !important; }
+        #page-cetak > div.w-full.px-4 { padding-bottom: 90px !important; }
+        #page-setting > div.w-full.px-4 { padding-bottom: 90px !important; }
+
+        /* Hilangkan spinner (tombol atas bawah) di input cicilan kasbon */
+        input.kasbon-cicilan-input::-webkit-outer-spin-button,
+        input.kasbon-cicilan-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input.kasbon-cicilan-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+    </style>
+</head>
+<body class="bg-gray-100 antialiased h-full m-0 p-0 flex flex-col justify-between overflow-x-hidden">
+
+    <div id="notif-container"></div>
+
+    <header id="main-header" class="w-full flex-none" style="background-color:#FF7315;">
+        <div class="max-w-lg mx-auto flex justify-start items-center py-4 px-6">
+            <div class="h-12 max-w-[160px]">
+                <img src="EM2Rubber.svg" alt="EM2 Rubber Logo" class="w-full h-full object-contain">
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full flex-1 flex flex-col max-w-lg mx-auto">
+
+        <section id="page-dashboard" class="flex-1 flex flex-col" style="background:linear-gradient(to bottom,#e34400,#f88600);padding:16px;gap:14px;">
+
+            <div onclick="switchTab('input')" class="menu-card click-feedback" style="background-color:#b1bcc7;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-end;padding:20px;">
+                <div class="card-decor" style="position:absolute;right:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(10deg);"></div>
+                <div class="card-decor" style="position:absolute;right:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(-6deg);"></div>
+               <img src="char1.png" style="position:absolute;right:0%;bottom:-15%;height:130%;object-fit:contain;z-index:1;" alt="">
+                <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Input Data</span>
+            </div>
+
+            <div onclick="switchTab('riwayat')" class="menu-card click-feedback" style="background-color:#FF7315;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-start;justify-content:flex-end;padding:20px;">
+                <div class="card-decor" style="position:absolute;left:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(-10deg);"></div>
+                <div class="card-decor" style="position:absolute;left:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(6deg);"></div>
+                <img src="char2.png" style="position:absolute;left:0%;bottom:-5%;height:120%;object-fit:contain;z-index:1;" alt="">
+                <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Riwayat Data</span>
+            </div>
+
+            <div onclick="switchTab('cetak')" class="menu-card click-feedback" style="background-color:#6cddc7;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-start;padding:20px;">
+                <div class="card-decor" style="position:absolute;right:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(10deg);"></div>
+                <div class="card-decor" style="position:absolute;right:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(-6deg);"></div>
+                <img src="char3.png" style="position:absolute;right:0%;bottom:-10%;height:120%;object-fit:contain;z-index:1;" alt="">
+                <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Cetak Data</span>
+            </div>
+
+            <div onclick="switchTab('setting')" class="menu-card click-feedback" style="background-color:#6ee5ff;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-start;justify-content:flex-end;padding:20px;">
+                <div class="card-decor" style="position:absolute;left:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(-10deg);"></div>
+                <div class="card-decor" style="position:absolute;left:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(6deg);"></div>
+                <img src="char4.png" style="position:absolute;left:0%;bottom:-15%;height:130%;object-fit:contain;z-index:1;" alt="">
+                <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Setting</span>
+            </div>
+
+        </section>
+
+        <section id="page-input" class="hidden min-h-screen flex flex-col select-none" style="background:linear-gradient(to bottom,#FF7315,#ffb800);">
+            
+            <div class="w-full">
+                <div class="w-full pt-12 pb-5 px-6 rounded-b-[2rem] border-b-4 border-white shadow-md" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+    <div class="max-w-xl mx-auto text-center">
+        <span class="text-[10px] font-bold bg-black/10 text-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Input</span>
+        <h2 class="text-xl font-black mt-1 tracking-tight text-black">INPUT DATA BARU</h2>
+    </div>
+</div>
+                
+                <div class="w-full px-3 mt-3">
+                    <div class="p-4 rounded-2xl border-4 border-white shadow-xl text-black" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                        <div id="invoice-form" class="space-y-3">
+                            
+                            <div>
+                                <label class="block text-[10px] font-black text-black uppercase tracking-wider mb-1">Vendor / Pelanggan</label>
+                                <div class="custom-select-wrapper" id="wrapper-vendor">
+                                    <div class="custom-select-trigger" id="trigger-vendor" onclick="toggleCustomSelect('vendor')" style="padding:10px 14px;">
+                                        <span id="label-vendor" style="color:#9ca3af;font-weight:500;font-size:0.875rem">-- Pilih Vendor --</span>
+                                        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </div>
+                                    <div class="custom-select-dropdown" id="dropdown-vendor"></div>
+                                </div>
+                                <input type="hidden" id="vendor" required>
+                                <div id="info-kasbon-vendor" class="hidden mt-1 bg-orange-400/30 border border-orange-300/50 rounded-lg px-2 py-1.5 flex items-center gap-1.5">
+                                    <span style="font-size:0.9rem">⚠️</span>
+                                    <span class="text-[10px] font-black text-black">Sisa kasbon: <span id="info-kasbon-nominal" class="text-black"></span></span>
+                                </div>
+                            </div>
+
+                            <div class="bg-white/10 rounded-xl p-3 border border-white/20 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <p class="text-[9px] font-black text-black/70 uppercase tracking-widest">➕ Tambah Jenis</p>
+                                    <div class="flex items-center gap-1 bg-white/10 rounded-full p-0.5">
+                                        <button id="btn-mode-pilih" onclick="setJenisMode('pilih')" class="text-[9px] font-black px-2.5 py-1 rounded-full transition-all bg-white text-black shadow">PILIH</button>
+                                        <button id="btn-mode-manual" onclick="setJenisMode('manual')" class="text-[9px] font-black px-2.5 py-1 rounded-full transition-all text-black/50">MANUAL</button>
+                                    </div>
+                                </div>
+                                <div id="mode-pilih-wrapper">
+                                    <div class="custom-select-wrapper" id="wrapper-jenis-gambar">
+                                        <div class="custom-select-trigger" id="trigger-jenis-gambar" onclick="toggleCustomSelect('jenis-gambar')" style="padding:9px 12px;">
+                                            <span id="label-jenis-gambar" style="color:#9ca3af;font-weight:500;font-size:0.85rem">-- Pilih Jenis --</span>
+                                            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                                        </div>
+                                        <div class="custom-select-dropdown" id="dropdown-jenis-gambar"></div>
+                                    </div>
+                                    <input type="hidden" id="jenis-gambar" value="">
+                                </div>
+                                <div id="mode-manual-wrapper" class="hidden space-y-1.5">
+                                    <input type="text" id="manual-jenis-nama" placeholder="NAMA JENIS (BEBAS)" oninput="this.value=this.value.toUpperCase()" class="w-full px-3 py-2 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-white text-sm font-bold text-gray-800 shadow-sm placeholder-gray-400" style="text-transform:uppercase">
+                                    <div>
+                                        <label class="block text-[9px] font-bold text-black/60 uppercase mb-0.5">Harga Manual (Rp)</label>
+                                        <input type="text" inputmode="numeric" id="manual-harga-input" placeholder="0" oninput="formatManualHarga(this)" data-raw="0" class="w-full px-3 py-2 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-white text-sm font-bold text-gray-800 shadow-sm placeholder-gray-400">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="block text-[9px] font-bold text-black uppercase mb-0.5">Harga</label>
+                                        <input type="text" id="harga-satuan-display" readonly placeholder="Auto..." class="w-full px-2 py-2 rounded-lg border border-white/20 bg-white text-gray-500 font-bold text-sm focus:outline-none shadow-sm pointer-events-none select-none placeholder-gray-400">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-bold text-black uppercase mb-0.5">QTY</label>
+                                        <input type="number" id="qty" min="0" value="" placeholder="0" oninput="updateHargaOtomatis();updateJumlahDisplay()" class="w-full px-2 py-2 rounded-lg border border-white/20 focus:outline-none focus:ring-2 focus:ring-white text-sm font-bold text-gray-800 shadow-sm bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-bold text-black uppercase mb-0.5">Jumlah</label>
+                                        <input type="text" id="jumlah-display" readonly placeholder="Rp0" class="w-full px-2 py-2 rounded-lg border border-white/20 bg-white text-gray-500 font-bold text-sm focus:outline-none shadow-sm pointer-events-none select-none placeholder-gray-400">
+                                    </div>
+                                </div>
+                                <button type="button" onclick="addToCart()" class="w-full bg-white/30 hover:bg-white/40 border-2 border-white text-black font-black py-4 px-3 rounded-xl click-feedback flex justify-center items-center gap-2 transition-all text-sm uppercase tracking-widest shadow-md">
+                                    ➕ Tambah ke Daftar
+                                </button>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="text-[10px] font-black text-black uppercase tracking-wider">Daftar Item</label>
+                                    <span id="cart-count" class="text-[9px] font-black bg-black/10 text-black px-2 py-0.5 rounded-full">0 item</span>
+                                </div>
+                                <div id="cart-list" class="space-y-1.5"></div>
+                            </div>
+
+                            <div class="bg-white/10 p-3 rounded-xl border border-white/10 shadow-inner">
+                                <p class="text-[9px] font-black text-black/60 uppercase tracking-widest mb-2">💳 DP & Kasbon</p>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="bg-white/10 rounded-lg p-2.5 space-y-1.5">
+                                        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="check-dp" onchange="toggleDp()" class="w-4 h-4 rounded border-white/30 text-blue-600 focus:ring-white bg-white/20 flex-shrink-0">
+                                            <span class="text-[10px] font-black text-black uppercase tracking-wide">DP</span>
+                                        </label>
+                                        <label class="block text-[9px] font-bold text-black/60 uppercase">Jumlah DP (Rp)</label>
+                                        <input type="text" inputmode="numeric" id="input-dp" data-raw="0" disabled placeholder="0" oninput="formatRupiahInput(this)" class="w-full px-2 py-2 rounded-lg border-none bg-black/10 text-white/40 font-bold text-xs focus:outline-none transition-all disabled:opacity-60">
+                                    </div>
+                                    <div class="bg-white/10 rounded-lg p-2.5 space-y-1.5">
+                                        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+                                            <input type="checkbox" id="check-kasbon" onchange="toggleKasbon()" class="w-4 h-4 rounded border-white/30 text-orange-400 focus:ring-white bg-white/20 flex-shrink-0">
+                                            <span class="text-[10px] font-black text-black uppercase tracking-wide">Kasbon</span>
+                                        </label>
+                                        <label class="block text-[9px] font-bold text-black/60 uppercase">Jumlah Kasbon (Rp)</label>
+                                        <input type="text" inputmode="numeric" id="input-kasbon" data-raw="0" disabled placeholder="0" oninput="formatRupiahInput(this)" class="w-full px-2 py-2 rounded-lg border-none bg-black/10 text-white/40 font-bold text-xs focus:outline-none transition-all disabled:opacity-60">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Total & Simpan -->
+                            <div class="bg-white/10 rounded-xl px-3 py-2.5 flex justify-between items-center border border-white/20">
+                                <span class="text-[10px] font-black text-black/70 uppercase">Total</span>
+                                <span class="text-base font-black text-black" id="cart-grand-total">Rp 0</span>
+                            </div>
+
+                            <button type="button" onclick="submitCart()" id="btn-submit-cart" class="w-full bg-white hover:bg-gray-50 font-black py-4 px-4 rounded-xl shadow-md click-feedback flex justify-center items-center gap-2 transition-all uppercase tracking-widest">
+                                <span style="font-size:1.5rem;line-height:1">💾</span>
+                                <span style="color:#000000;font-size:1.1rem;letter-spacing:0.15em">SIMPAN SEMUA</span>
+                            </button>
+
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <section id="page-riwayat" class="hidden min-h-screen flex flex-col select-none" style="background:linear-gradient(to bottom,#FF7315,#ffb800);">
+
+            <div class="w-full">
+                <div class="w-full pt-12 pb-5 px-6 rounded-b-[2rem] border-b-4 border-white shadow-md" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                    <div class="max-w-xl mx-auto text-center">
+                        <span class="text-[10px] font-bold bg-black/10 text-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Riwayat</span>
+                        <h2 class="text-xl font-black mt-1 tracking-tight text-black">RIWAYAT TRANSAKSI</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full px-4 mt-5 flex-1 flex flex-col gap-4">
+
+            <!-- Periode Filter Mingguan -->
+            <div class="p-4 rounded-2xl border-4 border-white shadow-xl space-y-3" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                <p class="text-xs font-black text-black uppercase tracking-wider">📅 Filter Periode Mingguan</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-black uppercase mb-1.5">Dari (Senin)</label>
+                        <input type="date" id="riwayat-date-start" onchange="filterRiwayatByPeriode()" class="w-full px-4 py-3.5 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-black uppercase mb-1.5">Sampai (Minggu)</label>
+                        <input type="date" id="riwayat-date-end" onchange="filterRiwayatByPeriode()" class="w-full px-4 py-3.5 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="setWeekPrev()" class="flex-1 bg-white/30 hover:bg-white/40 border-2 border-white text-black font-bold py-3 px-3 rounded-xl text-xs click-feedback transition-all">◀ Minggu Lalu</button>
+                    <button onclick="setWeekCurrent()" class="flex-1 bg-white/30 hover:bg-white/40 border-2 border-white text-black font-bold py-3 px-3 rounded-xl text-xs click-feedback transition-all">📅 Minggu Ini</button>
+                </div>
+                <div id="riwayat-periode-label" class="text-center text-xs font-bold text-black bg-white/30 py-2 rounded-xl"></div>
+            </div>
+
+            <!-- Tabel Per Vendor -->
+            <div id="riwayat-vendor-tables" class="space-y-3">
+                <!-- Diisi oleh JS -->
+            </div>
+
+            <!-- Ringkasan Total -->
+            <div id="riwayat-summary" class="p-4 rounded-2xl text-black shadow-md hidden" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-black uppercase tracking-wider">TOTAL SEMUA TRANSAKSI</span>
+                    <span class="text-lg font-black" id="riwayat-grand-total">Rp 0</span>
+                </div>
+            </div>
+
+
+
+            </div><!-- end inner wrapper -->
+        </section>
+
+        <section id="page-cetak" class="hidden min-h-screen flex flex-col select-none" style="background:linear-gradient(to bottom,#FF7315,#ffb800);">
+
+            <div class="w-full">
+                <div class="w-full pt-12 pb-5 px-6 rounded-b-[2rem] border-b-4 border-white shadow-md" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                    <div class="max-w-xl mx-auto text-center">
+                        <span class="text-[10px] font-bold bg-black/10 text-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Export File</span>
+                        <h2 class="text-xl font-black mt-1 tracking-tight text-black">CETAK TAGIHAN</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full px-4 mt-5 flex-1 flex flex-col gap-4 pb-8">
+
+                <!-- Filter Periode -->
+                <div class="p-4 rounded-2xl border-4 border-white shadow-xl space-y-3" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                    <p class="text-xs font-black text-black uppercase tracking-wider">📅 Pilih Periode</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-black uppercase mb-1.5">Dari</label>
+                            <input type="date" id="cetak-date-start" onchange="refreshCetakVendorList()" class="w-full px-3 py-3 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-black uppercase mb-1.5">Sampai</label>
+                            <input type="date" id="cetak-date-end" onchange="refreshCetakVendorList()" class="w-full px-3 py-3 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800">
+                        </div>
+                    </div>
+                    <input type="hidden" id="cetak-vendor" value="ALL">
+                </div>
+
+                <!-- Daftar Vendor Punya Tagihan -->
+                <div id="cetak-vendor-list-wrap" class="space-y-2">
+                    <!-- diisi JS -->
+                </div>
+
+                <!-- Surat Tagihan Preview -->
+                <div id="tagihan-preview-wrap" class="hidden">
+                    <!-- Kartu yang akan di-screenshot -->
+                    <div id="invoice-card" style="background:#ffffff;font-family:'Nunito',sans-serif;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);border:1px solid #e5e7eb;">
+
+                        <!-- HEADER -->
+                        <div style="background:linear-gradient(135deg,#06b6d4 0%,#2563eb 60%,#7c3aed 100%);padding:16px 20px;position:relative;overflow:hidden;">
+                            <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(255,255,255,0.07);border-radius:50%;"></div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;position:relative;">
+                                <img src="EM2Rubber.svg" alt="EM2STUDIO" style="height:52px;filter:brightness(0) invert(1);opacity:0.95;" onerror="this.style.display='none'">
+                                <div style="text-align:right;">
+                                    <div style="color:rgba(255,255,255,0.6);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">No. Invoice</div>
+                                    <div id="inv-date" style="color:white;font-size:11px;font-weight:900;margin-top:1px;">INV-2026-000000</div>
+                                    <div style="color:rgba(255,255,255,0.6);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-top:5px;">Tanggal</div>
+                                    <div id="inv-current-time" style="color:white;font-size:10px;font-weight:800;margin-top:1px;">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KEPADA & PERIODE -->
+                        <div style="padding:16px 24px;background:#f8fafc;border-bottom:2px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                            <div>
+                                <div style="color:#94a3b8;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;">Kepada Yth.</div>
+                                <div id="inv-vendor" style="color:#1e293b;font-size:14px;font-weight:900;margin-top:2px;">-</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="color:#94a3b8;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.15em;">Periode</div>
+                                <div id="inv-periode" style="color:#1e293b;font-size:10px;font-weight:800;margin-top:2px;">-</div>
+                            </div>
+                        </div>
+
+                        <!-- TABEL ITEM -->
+                        <div style="padding:0 0 0 0;">
+                            <table style="width:100%;border-collapse:collapse;">
+                                <thead>
+                                    <tr style="background:#f1f5f9;">
+                                        <th style="padding:10px 12px;text-align:left;font-size:8px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid #e2e8f0;">No</th>
+                                        <th style="padding:10px 12px;text-align:left;font-size:8px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid #e2e8f0;">Jenis Pekerjaan</th>
+                                        <th style="padding:10px 8px;text-align:center;font-size:8px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid #e2e8f0;">QTY</th>
+                                        <th style="padding:10px 12px;text-align:right;font-size:8px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid #e2e8f0;">Harga</th>
+                                        <th style="padding:10px 12px;text-align:right;font-size:8px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid #e2e8f0;">Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inv-items-body">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- SUMMARY TOTAL -->
+                        <div id="inv-summary" style="padding:12px 24px 20px;background:#f8fafc;border-top:2px solid #e2e8f0;">
+                        </div>
+
+                        <!-- FOOTER REKENING -->
+                        <div style="background:linear-gradient(135deg,#06b6d4 0%,#2563eb 100%);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="color:rgba(255,255,255,0.7);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;">Transfer ke Rekening</div>
+                                <div id="inv-norek-text" style="color:white;font-size:12px;font-weight:900;margin-top:3px;">BCA - 5140250521</div>
+                                <div style="color:rgba(255,255,255,0.65);font-size:8px;font-weight:700;margin-top:2px;">a.n. ANDRIYANTO</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="color:rgba(255,255,255,0.7);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;">Total Tagihan</div>
+                                <div id="inv-total" style="color:#fbbf24;font-size:18px;font-weight:900;margin-top:2px;">Rp 0</div>
+                            </div>
+                        </div>
+
+                        <!-- CATATAN BAWAH -->
+                        <div style="padding:10px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+                            <div style="color:#94a3b8;font-size:8px;font-weight:700;">Terima kasih atas kepercayaan Anda 🙏</div>
+                            <div style="color:#cbd5e1;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">EM2STUDIO © 2026</div>
+                        </div>
+
+                    </div>
+
+                    <!-- Tombol download -->
+                    <div class="mt-4 space-y-3">
+                        <button id="btn-download" onclick="downloadTagihan()" class="w-full bg-white hover:bg-gray-50 font-black py-4 px-4 rounded-xl shadow-md click-feedback flex justify-center items-center gap-3 transition-all uppercase tracking-widest border-2 border-amber-300">
+                            <span style="font-size:1.5rem">📥</span>
+                            <span style="color:#d97706;font-size:1rem">DOWNLOAD JPEG</span>
+                        </button>
+                        <button onclick="copyToClipboard()" class="w-full bg-white/20 hover:bg-white/30 text-white font-bold py-3 px-4 rounded-xl click-feedback text-sm flex justify-center items-center gap-2 transition-all border border-white/30">
+                            📋 Salin Nomor Rekening
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Toast notif -->
+                <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg z-50">✅ Nomor rekening disalin!</div>
+
+
+
+            </div>
+        </section>
+
+        <section id="page-setting" class="hidden min-h-screen flex flex-col select-none" style="background:linear-gradient(to bottom,#FF7315,#ffb800);">
+
+            <div class="w-full">
+                <div class="w-full pt-12 pb-5 px-6 rounded-b-[2rem] border-b-4 border-white shadow-md" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                    <div class="max-w-xl mx-auto text-center">
+                        <span class="text-[10px] font-bold bg-black/10 text-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Konfigurasi</span>
+                        <h2 class="text-xl font-black mt-1 tracking-tight text-black">PENGATURAN SISTEM</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full px-4 mt-5 flex-1 flex flex-col gap-4 pb-8">
+
+                <!-- Card Vendor -->
+                <div class="p-5 rounded-2xl border-4 border-white shadow-xl space-y-3" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                    <p class="text-xs font-black text-black uppercase tracking-wider">Tambah Nama Vendor Baru</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-vendor-name" placeholder="NAMA PT / INSTANSI" oninput="this.value=this.value.toUpperCase()" class="flex-1 px-4 py-3.5 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800" style="text-transform:uppercase">
+                        <button onclick="addVendor()" class="text-black px-5 py-3.5 rounded-xl text-sm font-black click-feedback bg-white/30 hover:bg-white/40 border-2 border-white">Tambah</button>
+                    </div>
+                    <ul id="vendor-list" class="text-sm bg-white/20 rounded-xl p-3 divide-y divide-white/20 max-h-40 overflow-y-auto"></ul>
+                </div>
+
+                <!-- Card Harga -->
+                <div class="p-5 rounded-2xl border-4 border-white shadow-xl space-y-3" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                    <p class="text-xs font-black text-black uppercase tracking-wider">&#x1F4B0; Pengaturan Harga</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-price-jenis" placeholder="NAMA JENIS BARU" oninput="this.value=this.value.toUpperCase()" class="flex-1 px-4 py-3.5 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800 uppercase" style="text-transform:uppercase">
+                        <input type="number" id="new-price-value" placeholder="Harga" min="0" class="w-28 px-3 py-3.5 text-sm font-bold border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white bg-white text-gray-800 text-right">
+                        <button onclick="addPriceItem()" class="text-black px-3 py-3.5 rounded-xl text-sm font-black click-feedback whitespace-nowrap bg-white/30 hover:bg-white/40 border-2 border-white">+ Tambah</button>
+                    </div>
+                    <ul id="price-list" class="space-y-2"></ul>
+                </div>
+
+                <!-- Card Supabase -->
+                <div class="p-5 rounded-2xl border-4 border-white shadow-xl space-y-3" style="background:linear-gradient(to right,#FF7315,#ffb800);">
+                    <button onclick="toggleSupabasePanel()" class="w-full flex justify-between items-center click-feedback">
+                        <span class="text-xs font-black text-black uppercase tracking-wider">&#x1F50C; Koneksi Supabase</span>
+                        <svg id="supabase-chevron" class="w-5 h-5 text-black transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <input type="hidden" id="sb-url-input">
+                    <input type="hidden" id="sb-key-input">
+                    <div id="supabase-panel" class="hidden space-y-3">
+                        <div class="bg-white/30 rounded-xl p-4 flex items-center gap-3 border-2 border-white">
+                            <div class="text-2xl">&#x1F50C;</div>
+                            <div class="flex-1">
+                                <p class="text-xs font-black text-black">Database Supabase</p>
+                                <p id="sb-status" class="text-[11px] font-bold mt-0.5 text-black/70">Memeriksa koneksi...</p>
+                            </div>
+                        </div>
+                        <button onclick="testSupabaseConnection()" class="w-full text-black font-black py-3 px-4 rounded-xl text-xs click-feedback transition-all bg-white/30 hover:bg-white/40 border-2 border-white uppercase tracking-wider">
+                            &#x1F504; Test Koneksi Supabase
+                        </button>
+                    </div>
+                </div>
+
+
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- ===== FIXED BACK BUTTON BAR ===== -->
+    <div id="fixed-back-bar">
+        <button id="fixed-back-btn" onclick="switchTab('dashboard')">
+            ⬅️ BACK
+        </button>
+    </div>
+
+    <script>
+        let appData = {
+            vendors: [],
+            prices: {}
+        };
+
+        // ===== CUSTOM NOTIFICATION SYSTEM =====
+        const NOTIF_ICONS = {
+            success: '✅',
+            error: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+        };
+        const NOTIF_LABELS = {
+            success: 'Berhasil',
+            error: 'Terjadi Kesalahan',
+            warning: 'Perhatian',
+            info: 'Informasi'
+        };
+        let _notifQueue = [];
+
+        function showNotif(type, title, msg, duration = 3500) {
+            const container = document.getElementById('notif-container');
+            const id = 'notif-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+            
+            const toast = document.createElement('div');
+            toast.className = `notif-toast notif-${type}`;
+            toast.id = id;
+            toast.innerHTML = `
+                <div class="notif-inner">
+                    <div class="notif-icon-wrap">${NOTIF_ICONS[type]}</div>
+                    <div class="notif-body">
+                        <div class="notif-label">${NOTIF_LABELS[type]}</div>
+                        <div class="notif-title">${title}</div>
+                        ${msg ? `<div class="notif-msg">${msg}</div>` : ''}
+                    </div>
+                    <button class="notif-close" onclick="dismissNotif('${id}')">✕</button>
+                </div>
+                <div class="notif-progress">
+                    <div class="notif-progress-bar" id="bar-${id}" style="transform:scaleX(1)"></div>
+                </div>
+            `;
+            container.appendChild(toast);
+
+            // Trigger show animation
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => { toast.classList.add('show'); });
+            });
+
+            // Progress bar
+            const bar = document.getElementById('bar-' + id);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    bar.style.transition = `transform ${duration}ms linear`;
+                    bar.style.transform = 'scaleX(0)';
+                });
+            });
+
+            // Auto dismiss
+            const timer = setTimeout(() => dismissNotif(id), duration);
+            toast._timer = timer;
+        }
+
+        function dismissNotif(id) {
+            const toast = document.getElementById(id);
+            if (!toast) return;
+            if (toast._timer) clearTimeout(toast._timer);
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 350);
+        }
+
+        // ===== SUPABASE CONFIG (ditanam langsung) =====
+        const SUPABASE_URL = 'https://mzvvgowahuwukmtcwzsj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16dnZnb3dhaHV3dWttdGN3enNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODQwNjQsImV4cCI6MjA5NTk2MDA2NH0.VJvxJvfS74mXOqQWO2uzNbZUlI0PnRBC3jmr_GZynbg';
+
+        let supabaseClient = null;
+
+        function setupSupabaseClient() {
+            // Hanya buat instance baru jika belum ada (hindari multiple GoTrueClient warning)
+            if (supabaseClient) return;
+            const url = SUPABASE_URL;
+            const anonKey = SUPABASE_ANON_KEY;
+            if (url && anonKey) {
+                supabaseClient = supabase.createClient(url, anonKey);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            setupSupabaseClient();
+            await loadVendorsFromSupabase();
+            await loadPricesFromSupabase();
+            await loadTransaksiFromSupabase();
+            await loadDpFromSupabase();
+            await loadKasbonFromSupabase();
+            renderVendorOptions();
+            renderSettingVendorList();
+            renderJenisGambarOptions();
+            renderPriceList();
+            updateHargaOtomatis();
+            document.getElementById('inv-current-time').innerText = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+        });
+
+        async function loadVendorsFromSupabase() {
+            try {
+                const { data, error } = await supabaseClient.from('vendors').select('nama').order('nama');
+                if (error) throw error;
+                appData.vendors = (data || []).map(r => r.nama.toUpperCase());
+            } catch(e) { console.error('loadVendors error:', e); }
+        }
+
+        async function loadPricesFromSupabase() {
+            try {
+                const { data, error } = await supabaseClient.from('jenis_harga').select('nama, harga').order('nama');
+                if (error) throw error;
+                appData.prices = {};
+                (data || []).forEach(r => { appData.prices[r.nama.toUpperCase()] = r.harga; });
+            } catch(e) { console.error('loadPrices error:', e); }
+        }
+
+        function switchTab(targetPage) {
+            document.getElementById('page-dashboard').classList.add('hidden');
+            document.getElementById('page-input').classList.add('hidden');
+            document.getElementById('page-riwayat').classList.add('hidden');
+            document.getElementById('page-cetak').classList.add('hidden');
+            document.getElementById('page-setting').classList.add('hidden');
+            
+            const mainEl = document.querySelector('main');
+            const bodyEl = document.body;
+            const headerEl = document.getElementById('main-header');
+            const backBar = document.getElementById('fixed-back-bar');
+
+            // Reset back bar
+            backBar.className = '';
+            backBar.classList.remove('visible','back-input','back-riwayat','back-cetak','back-setting');
+
+            if (targetPage === 'dashboard') {
+                headerEl.classList.remove('hidden');
+                mainEl.className = "w-full flex-1 flex flex-col max-w-lg mx-auto";
+                bodyEl.style.backgroundColor = '#e34400';
+            } else {
+                headerEl.classList.add('hidden');
+                mainEl.className = "w-full flex-1 flex flex-col";
+                bodyEl.style.backgroundColor = 'transparent';
+                backBar.classList.add('visible', 'back-' + targetPage);
+            }
+            document.getElementById(`page-${targetPage}`).classList.remove('hidden');
+            if (targetPage === 'riwayat') { 
+                Promise.all([loadTransaksiFromSupabase(), loadDpFromSupabase(), loadKasbonFromSupabase()]).then(() => setWeekCurrent());
+            }
+            if (targetPage === 'cetak') {
+                Promise.all([loadTransaksiFromSupabase(), loadDpFromSupabase(), loadKasbonFromSupabase()]).then(() => initCetakPage());
+            }
+            if (targetPage === 'setting') {
+                const statusEl = document.getElementById('sb-status');
+                if (supabaseClient) {
+                    statusEl.textContent = '🟢 Terhubung ke Supabase';
+                    statusEl.style.color = '#10b981';
+                } else {
+                    statusEl.textContent = '🔴 Belum terhubung (cek konfigurasi)';
+                    statusEl.style.color = '#ef4444';
+                }
+                loadVendorsFromSupabase().then(() => { renderVendorOptions(); renderSettingVendorList(); });
+                loadPricesFromSupabase().then(() => { renderPriceList(); renderJenisGambarOptions(); });
+            }
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
+
+        // ===== MODE JENIS: PILIH / MANUAL =====
+        let jenisMode = 'pilih';
+
+        function setJenisMode(mode) {
+            jenisMode = mode;
+            const pilihWrapper = document.getElementById('mode-pilih-wrapper');
+            const manualWrapper = document.getElementById('mode-manual-wrapper');
+            const btnPilih = document.getElementById('btn-mode-pilih');
+            const btnManual = document.getElementById('btn-mode-manual');
+            const dispEl = document.getElementById('harga-satuan-display');
+            if (mode === 'pilih') {
+                pilihWrapper.classList.remove('hidden');
+                manualWrapper.classList.add('hidden');
+                btnPilih.classList.add('bg-white', 'text-black', 'shadow');
+                btnPilih.classList.remove('text-white/60');
+                btnManual.classList.remove('bg-white', 'text-black', 'shadow');
+                btnManual.classList.add('text-white/60');
+                document.getElementById('manual-jenis-nama').value = '';
+                document.getElementById('manual-harga-input').value = '';
+                document.getElementById('manual-harga-input').dataset.raw = '0';
+                if (dispEl) { dispEl.value = ''; dispEl.placeholder = 'Auto...'; }
+                const jd = document.getElementById('jumlah-display');
+                if (jd) { jd.value = ''; }
+            } else {
+                pilihWrapper.classList.add('hidden');
+                manualWrapper.classList.remove('hidden');
+                btnManual.classList.add('bg-white', 'text-black', 'shadow');
+                btnManual.classList.remove('text-white/60');
+                btnPilih.classList.remove('bg-white', 'text-black', 'shadow');
+                btnPilih.classList.add('text-white/60');
+                document.getElementById('jenis-gambar').value = '';
+                document.getElementById('label-jenis-gambar').textContent = '-- Pilih Jenis --';
+                document.getElementById('label-jenis-gambar').style.color = '#9ca3af';
+                if (dispEl) { dispEl.value = ''; dispEl.placeholder = 'Dari input harga...'; }
+                const jd2 = document.getElementById('jumlah-display');
+                if (jd2) { jd2.value = ''; }
+                document.getElementById('manual-jenis-nama').focus();
+            }
+        }
+
+        function formatManualHarga(el) {
+            const raw = el.value.replace(/[^0-9]/g, '');
+            const num = parseInt(raw) || 0;
+            el.dataset.raw = num;
+            el.value = num > 0 ? new Intl.NumberFormat('id-ID').format(num) : '';
+            const dispEl = document.getElementById('harga-satuan-display');
+            if (dispEl) {
+                dispEl.value = num > 0
+                    ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num)
+                    : '';
+                dispEl.placeholder = 'Dari input harga...';
+            }
+            setTimeout(() => { el.selectionStart = el.selectionEnd = el.value.length; }, 0);
+            updateJumlahDisplay();
+        }
+
+        function updateHargaOtomatis() {
+            if (jenisMode === 'manual') return;
+            const jenis = document.getElementById('jenis-gambar').value;
+            const hargaSatuan = appData.prices[jenis] || 0;
+            const qty = parseInt(document.getElementById('qty').value) || 1;
+            const totalEl = document.getElementById('total');
+            if (totalEl) totalEl.value = hargaSatuan * qty;
+            const dispEl = document.getElementById('harga-satuan-display');
+            if (dispEl) {
+                dispEl.value = jenis && hargaSatuan > 0
+                    ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(hargaSatuan)
+                    : '';
+                dispEl.placeholder = jenis ? 'Harga belum diatur' : 'Auto...';
+            }
+            updateJumlahDisplay();
+        }
+
+        function updateJumlahDisplay() {
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const qty = parseInt(document.getElementById('qty').value) || 0;
+            let harga = 0;
+            if (jenisMode === 'manual') {
+                harga = parseInt(document.getElementById('manual-harga-input').dataset.raw) || 0;
+            } else {
+                const jenis = document.getElementById('jenis-gambar').value;
+                harga = appData.prices[jenis] || 0;
+            }
+            const jumlahEl = document.getElementById('jumlah-display');
+            if (jumlahEl) {
+                const total = harga * qty;
+                jumlahEl.value = total > 0 ? fmt(total) : '';
+                jumlahEl.placeholder = 'Rp0';
+            }
+        }
+        function hitungTotal() { updateHargaOtomatis(); }
+        function toggleCustomSelect(id) {
+            const wrapper = document.getElementById('wrapper-' + id);
+            const isOpen = wrapper.classList.contains('open');
+            // Close all open dropdowns first
+            document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+            if (!isOpen) wrapper.classList.add('open');
+        }
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.custom-select-wrapper')) {
+                document.querySelectorAll('.custom-select-wrapper.open').forEach(w => w.classList.remove('open'));
+            }
+        });
+        function selectOption(id, value) {
+            const hiddenEl = document.getElementById(id);
+            if (hiddenEl) hiddenEl.value = value;
+            const lbl = document.getElementById('label-' + id);
+            if (lbl) { lbl.textContent = value; lbl.style.color = '#1f2937'; lbl.style.fontWeight = '700'; }
+            document.querySelectorAll('#dropdown-' + id + ' .custom-select-option').forEach(opt => {
+                opt.classList.toggle('selected', opt.dataset.value === value);
+            });
+            const wrapper = document.getElementById('wrapper-' + id);
+            if (wrapper) wrapper.classList.remove('open');
+            // Langsung update display harga setelah value ter-set
+            if (id === 'jenis-gambar') {
+                const hargaSatuan = appData.prices[value] || 0;
+                const qty = parseInt(document.getElementById('qty').value) || 1;
+                const dispEl = document.getElementById('harga-satuan-display');
+                if (dispEl) {
+                    if (hargaSatuan > 0) {
+                        dispEl.value = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(hargaSatuan);
+                        dispEl.placeholder = '';
+                    } else {
+                        dispEl.value = '';
+                        dispEl.placeholder = 'Harga belum diatur';
+                    }
+                }
+                updateJumlahDisplay();
+            } else {
+                updateHargaOtomatis();
+            }
+        }
+        function renderVendorOptions() {
+            const dropdown = document.getElementById('dropdown-vendor');
+            const hiddenInput = document.getElementById('vendor');
+            if (appData.vendors.length === 0) {
+                dropdown.innerHTML = `<div class="custom-select-option" style="color:#9ca3af">-- No Vendor --</div>`;
+                return;
+            }
+            dropdown.innerHTML = appData.vendors.map(v =>
+                `<div class="custom-select-option" data-value="${v}" onclick="selectOption('vendor','${v}')">${v}</div>`
+            ).join('');
+            // No default selection — label stays as placeholder
+            hiddenInput.value = '';
+            const lbl = document.getElementById('label-vendor');
+            lbl.textContent = '-- Pilih Vendor --';
+            lbl.style.color = '#9ca3af';
+            lbl.style.fontWeight = '500';
+        }
+        function renderSettingVendorList() {
+            document.getElementById('vendor-list').innerHTML = appData.vendors.map((v, i) => `<li class="flex justify-between items-center py-1.5"><span class="text-gray-800 font-bold text-sm">${v}</span><button onclick="deleteVendor(${i})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded-lg hover:bg-red-100">Hapus</button></li>`).join('');
+        }
+
+        function renderJenisGambarOptions() {
+            const dropdown = document.getElementById('dropdown-jenis-gambar');
+            if (!dropdown) return;
+            const sorted = Object.keys(appData.prices).sort((a, b) => a.localeCompare(b, 'id'));
+            if (sorted.length === 0) {
+                dropdown.innerHTML = '<div class="custom-select-option" style="color:#9ca3af">-- Belum ada jenis --</div>';
+                return;
+            }
+            dropdown.innerHTML = sorted.map(j =>
+                `<div class="custom-select-option" data-value="${j}" onclick="selectOption('jenis-gambar','${j.replace(/'/g,"\'")}')">${j}</div>`
+            ).join('');
+        }
+        async function addVendor() {
+            const val = document.getElementById('new-vendor-name').value.trim().toUpperCase();
+            if (!val) return;
+            try {
+                const { error } = await supabaseClient.from('vendors').insert([{ nama: val }]);
+                if (error) throw error;
+                document.getElementById('new-vendor-name').value = '';
+                await loadVendorsFromSupabase();
+                renderVendorOptions();
+                renderSettingVendorList();
+            } catch(e) {
+                showNotif('error', 'Gagal Tambah Vendor', e.message);
+            }
+        }
+        async function deleteVendor(index) {
+            const nama = appData.vendors[index];
+            if (!confirm('Hapus vendor "' + nama + '"?')) return;
+            try {
+                const { error } = await supabaseClient.from('vendors').delete().eq('nama', nama);
+                if (error) throw error;
+                await loadVendorsFromSupabase();
+                renderVendorOptions();
+                renderSettingVendorList();
+            } catch(e) {
+                showNotif('error', 'Gagal Hapus Vendor', e.message);
+            }
+        }
+        function renderPriceList() {
+            const ul = document.getElementById('price-list');
+            if (!ul) return;
+            const entries = Object.entries(appData.prices).sort((a, b) => a[0].localeCompare(b[0], 'id'));
+            if (entries.length === 0) {
+                ul.innerHTML = '<li class="text-xs text-gray-400 text-center py-2">Belum ada jenis harga</li>';
+                return;
+            }
+            ul.innerHTML = entries.map(([jenis, harga]) => {
+                const safeJenis = jenis.replace(/'/g, "\'");
+                return `<li class="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2" id="price-item-${encodeURIComponent(jenis)}">
+                    <span class="flex-1 text-xs font-black text-gray-800 uppercase">${jenis}</span>
+                    <span class="text-xs font-bold text-gray-500 price-display-${encodeURIComponent(jenis)}">${new Intl.NumberFormat('id-ID').format(harga)}</span>
+                    <button onclick="editPriceItem('${safeJenis}')" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100">✏️ Edit</button>
+                    <button onclick="deletePriceItem('${safeJenis}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded-lg hover:bg-red-100">🗑️ Hapus</button>
+                </li>`;
+            }).join('');
+        }
+
+        async function addPriceItem() {
+            const jenis = document.getElementById('new-price-jenis').value.trim().toUpperCase();
+            const harga = parseInt(document.getElementById('new-price-value').value) || 0;
+            if (!jenis) { showNotif('warning', 'Form Tidak Lengkap', 'Nama jenis tidak boleh kosong!'); return; }
+            if (harga <= 0) { showNotif('warning', 'Form Tidak Lengkap', 'Harga harus lebih dari 0!'); return; }
+            try {
+                const { error } = await supabaseClient.from('jenis_harga').insert([{ nama: jenis, harga: harga }]);
+                if (error) throw error;
+                document.getElementById('new-price-jenis').value = '';
+                document.getElementById('new-price-value').value = '';
+                await loadPricesFromSupabase();
+                renderPriceList();
+                renderJenisGambarOptions();
+                updateHargaOtomatis();
+            } catch(e) {
+                showNotif('error', 'Gagal Tambah Jenis', e.message);
+            }
+        }
+
+        function editPriceItem(jenis) {
+            const li = document.getElementById('price-item-' + encodeURIComponent(jenis));
+            if (!li) return;
+            const currentHarga = appData.prices[jenis] || 0;
+            li.innerHTML = `
+                <span class="flex-1 text-xs font-black text-gray-800 uppercase">${jenis}</span>
+                <input type="number" id="edit-price-${encodeURIComponent(jenis)}" value="${currentHarga}" min="0"
+                    class="w-28 px-2 py-1 text-xs font-bold border-2 border-blue-300 rounded-xl text-right focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <button onclick="savePriceItem('${jenis.replace(/'/g,"\'")}' )" class="text-white font-bold text-[10px] bg-blue-600 px-2 py-1 rounded-lg hover:bg-blue-700">💾 Simpan</button>
+                <button onclick="renderPriceList()" class="text-gray-500 font-bold text-[10px] bg-gray-100 px-2 py-1 rounded-lg hover:bg-gray-200">✕</button>
+            `;
+            document.getElementById('edit-price-' + encodeURIComponent(jenis)).focus();
+        }
+
+        async function savePriceItem(jenis) {
+            const input = document.getElementById('edit-price-' + encodeURIComponent(jenis));
+            const harga = parseInt(input.value) || 0;
+            if (harga <= 0) { showNotif('warning', 'Form Tidak Lengkap', 'Harga harus lebih dari 0!'); return; }
+            try {
+                const { error } = await supabaseClient.from('jenis_harga').update({ harga: harga }).eq('nama', jenis);
+                if (error) throw error;
+                await loadPricesFromSupabase();
+                renderPriceList();
+                renderJenisGambarOptions();
+                updateHargaOtomatis();
+            } catch(e) {
+                showNotif('error', 'Gagal Update Harga', e.message);
+            }
+        }
+
+        async function deletePriceItem(jenis) {
+            if (!confirm('Hapus jenis "' + jenis + '"?')) return;
+            try {
+                const { error } = await supabaseClient.from('jenis_harga').delete().eq('nama', jenis);
+                if (error) throw error;
+                await loadPricesFromSupabase();
+                renderPriceList();
+                renderJenisGambarOptions();
+                updateHargaOtomatis();
+            } catch(e) {
+                showNotif('error', 'Gagal Hapus Jenis', e.message);
+            }
+        }
+
+        async function savePrices() { /* tidak digunakan */ }
+        async function syncToSupabase() { /* tidak digunakan, pakai tabel terpisah */ }
+
+        function saveSupabaseConfig() {
+            // Fungsi ini tidak lagi digunakan karena key sudah ditanam di kode
+            // Tetap ada agar tidak error jika dipanggil dari tempat lain
+        }
+
+        function toggleSupabasePanel() {
+            const panel = document.getElementById('supabase-panel');
+            const chevron = document.getElementById('supabase-chevron');
+            const isHidden = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden');
+            chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        async function testSupabaseConnection() {
+            const statusEl = document.getElementById('sb-status');
+            setupSupabaseClient();
+            if (!supabaseClient) {
+                statusEl.textContent = '🔴 Koneksi gagal: Supabase URL/Key belum dikonfigurasi di kode.';
+                statusEl.style.color = '#ef4444';
+                return;
+            }
+            statusEl.textContent = '⏳ Menguji koneksi...';
+            statusEl.style.color = '#6b7280';
+            try {
+                const { data, error } = await supabaseClient.from('transaksi_invoice').select('id').limit(1);
+                if (error) throw error;
+                statusEl.textContent = '✅ Koneksi berhasil! Supabase aktif.';
+                statusEl.style.color = '#10b981';
+            } catch (err) {
+                statusEl.textContent = '🔴 Gagal: ' + err.message;
+                statusEl.style.color = '#ef4444';
+            }
+        }
+
+        // ===== RIWAYAT TRANSAKSI =====
+        // vendorMeta: { [vendorName]: { dp: number, kasbon: number } }
+        let vendorMeta = {};
+
+        // ===== CART SYSTEM =====
+        let cartItems = []; // [{jenis, qty, harga}]
+
+        function renderCart() {
+            const fmt = n => new Intl.NumberFormat('id-ID', {style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
+            const list = document.getElementById('cart-list');
+            const countEl = document.getElementById('cart-count');
+            const totalEl = document.getElementById('cart-grand-total');
+            if (!list) return;
+            if (cartItems.length === 0) {
+                list.innerHTML = '<div class="text-center text-white/50 text-xs font-bold py-2">Belum ada item. Tambah jenis gambar dulu.</div>';
+                countEl.textContent = '0 item';
+                totalEl.textContent = 'Rp 0';
+                return;
+            }
+            let grandTotal = 0;
+            list.innerHTML = cartItems.map((item, idx) => {
+                const sub = item.qty * item.harga;
+                grandTotal += sub;
+                return `<div class="flex items-center gap-2 bg-white/15 rounded-xl px-3 py-2 border border-white/20">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-black text-white truncate">${item.jenis}</div>
+                        <div class="text-[10px] text-white/70 font-bold">${item.qty} pcs × ${fmt(item.harga)} = <span class="text-yellow-200">${fmt(sub)}</span></div>
+                    </div>
+                    <button onclick="removeCartItem(${idx})" class="w-7 h-7 flex-shrink-0 bg-red-500/70 hover:bg-red-500 rounded-lg flex items-center justify-center text-white font-black text-xs click-feedback">✕</button>
+                </div>`;
+            }).join('');
+            countEl.textContent = cartItems.length + ' item';
+            totalEl.textContent = fmt(grandTotal);
+        }
+
+        function removeCartItem(idx) {
+            cartItems.splice(idx, 1);
+            renderCart();
+        }
+
+        function addToCart() {
+            const qty = parseInt(document.getElementById('qty').value) || 0;
+            let jenis, harga;
+            if (jenisMode === 'manual') {
+                jenis = document.getElementById('manual-jenis-nama').value.trim().toUpperCase();
+                harga = parseInt(document.getElementById('manual-harga-input').dataset.raw) || 0;
+                if (!jenis) { showNotif('warning','Nama Jenis Kosong','Isi nama jenis terlebih dahulu!'); return; }
+                if (harga <= 0) { showNotif('warning','Harga Kosong','Isi harga terlebih dahulu!'); return; }
+            } else {
+                jenis = document.getElementById('jenis-gambar').value;
+                harga = appData.prices[jenis] || 0;
+                if (!jenis) { showNotif('warning','Pilih Jenis','Pilih jenis gambar terlebih dahulu!'); return; }
+            }
+            if (qty <= 0) { showNotif('warning','QTY Kosong','QTY harus lebih dari 0!'); return; }
+            const existing = cartItems.find(i => i.jenis === jenis);
+            if (existing) { existing.qty += qty; }
+            else { cartItems.push({ jenis, qty, harga }); }
+            if (jenisMode === 'manual') {
+                document.getElementById('manual-jenis-nama').value = '';
+                document.getElementById('manual-harga-input').value = '';
+                document.getElementById('manual-harga-input').dataset.raw = '0';
+            } else {
+                document.getElementById('jenis-gambar').value = '';
+                document.getElementById('label-jenis-gambar').textContent = '-- Pilih Jenis --';
+                document.getElementById('label-jenis-gambar').style.color = '#9ca3af';
+            }
+            const hs = document.getElementById('harga-satuan-display');
+            if (hs) { hs.value = ''; hs.placeholder = jenisMode === 'manual' ? 'Dari input harga...' : 'Auto...'; }
+            const jd = document.getElementById('jumlah-display');
+            if (jd) { jd.value = ''; }
+            document.getElementById('qty').value = '';
+            renderCart();
+            showNotif('success','Item Ditambahkan ✅', jenis + ' · ' + qty + ' pcs', 2000);
+        }
+
+        async function submitCart() {
+            const vendorName = document.getElementById('vendor').value;
+            if (!vendorName) { showNotif('warning','Vendor Kosong','Pilih vendor terlebih dahulu!'); return; }
+
+            const dpActive = document.getElementById('check-dp').checked;
+            const kasbonActive = document.getElementById('check-kasbon').checked;
+            const dpEl = document.getElementById('input-dp');
+            const kbEl = document.getElementById('input-kasbon');
+            const dpVal = dpActive ? (parseInt(dpEl.dataset.raw) || parseInt(dpEl.value.replace(/[^0-9]/g,'')) || 0) : 0;
+            const kasbonVal = kasbonActive ? (parseInt(kbEl.dataset.raw) || parseInt(kbEl.value.replace(/[^0-9]/g,'')) || 0) : 0;
+            console.log('[submitCart] dpActive:', dpActive, 'dpVal:', dpVal, 'kasbonActive:', kasbonActive, 'kasbonVal:', kasbonVal);
+            const fmtRp = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
+
+            // Wajib ada item ATAU kasbon
+            if (cartItems.length === 0 && !kasbonActive) {
+                showNotif('warning','Daftar Kosong','Tambah minimal 1 jenis gambar, atau isi kasbon!');
+                return;
+            }
+            if (kasbonActive && kasbonVal <= 0) {
+                showNotif('warning', 'Kasbon Kosong', 'Centang kasbon tapi nominal belum diisi!');
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-cart');
+            btn.disabled = true;
+            showNotif('info', 'Menyimpan Data...', 'Mengirim ke Supabase, harap tunggu.', 3000);
+
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                let savedIds = [];
+                // Simpan item transaksi (hanya jika ada)
+                for (let i = 0; i < cartItems.length; i++) {
+                    const item = cartItems[i];
+                    const newEntry = {
+                        id: Date.now() + i,
+                        tanggal: today,
+                        vendor: vendorName,
+                        jenis: item.jenis,
+                        qty: item.qty,
+                        harga: item.harga
+                    };
+                    try {
+                        const savedId = await saveTransaksiToSupabase(newEntry);
+                        if (savedId) newEntry.id = savedId;
+                    } catch(err) { showNotif('error','Error Koneksi', err.message); }
+                    riwayatData.push(newEntry);
+                    savedIds.push(newEntry.id);
+                }
+
+                // Simpan DP ke tabel dp_invoice (terpisah)
+                if (dpActive && dpVal > 0) {
+                    try {
+                        const { data: dpRes, error: dpErr } = await supabaseClient
+                            .from('dp_invoice')
+                            .insert([{ tanggal: today, vendor: vendorName, jumlah: dpVal }])
+                            .select().single();
+                        if (dpErr) throw dpErr;
+                        if (dpRes) dpData.push({ id: dpRes.id, tanggal: today, vendor: vendorName, jumlah: dpVal, sesi_id: null });
+                    } catch(e) { showNotif('error','Gagal Simpan DP', e.message); }
+                }
+
+                // Simpan kasbon ke tabel kasbon (terpisah)
+                if (kasbonActive && kasbonVal > 0) {
+                    try {
+                        const { data: kbRes, error: kbErr } = await supabaseClient
+                            .from('kasbon')
+                            .insert([{ tanggal: today, vendor: vendorName, jumlah: kasbonVal, cicilan: 0, lunas: false }])
+                            .select().single();
+                        if (kbErr) throw kbErr;
+                        if (kbRes) kasbonData.push({ id: kbRes.id, tanggal: today, vendor: vendorName, jumlah: kasbonVal, cicilan: 0, lunas: false });
+                    } catch(e) { showNotif('error','Gagal Simpan Kasbon', e.message); }
+                }
+
+                const totalAll = cartItems.reduce((s,i) => s + i.qty * i.harga, 0);
+                if (cartItems.length > 0 && kasbonActive && kasbonVal > 0) {
+                    showNotif('success','Tersimpan! 🎉', vendorName + ' · ' + cartItems.length + ' jenis · ' + fmtRp(totalAll) + ' + Kasbon ' + fmtRp(kasbonVal), 4000);
+                } else if (cartItems.length > 0) {
+                    showNotif('success','Tersimpan! 🎉', vendorName + ' · ' + cartItems.length + ' jenis · ' + fmtRp(totalAll), 4000);
+                } else {
+                    showNotif('success','Kasbon Tersimpan! 🎉', vendorName + ' · Kasbon ' + fmtRp(kasbonVal), 4000);
+                }
+
+                // Reset semua
+                cartItems = [];
+                renderCart();
+                resetFormInput();
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function resetFormInput() {
+            document.getElementById('vendor').value = '';
+            document.getElementById('label-vendor').textContent = '-- Pilih Vendor --';
+            document.getElementById('label-vendor').style.color = '#9ca3af';
+            document.getElementById('jenis-gambar').value = '';
+            document.getElementById('label-jenis-gambar').textContent = '-- Pilih Jenis --';
+            document.getElementById('label-jenis-gambar').style.color = '#9ca3af';
+            const hs = document.getElementById('harga-satuan-display');
+            if (hs) { hs.value = ''; hs.placeholder = 'Auto...'; }
+            const jd = document.getElementById('jumlah-display');
+            if (jd) { jd.value = ''; jd.placeholder = 'Rp0'; }
+            document.getElementById('qty').value = '';
+            document.getElementById('check-dp').checked = false;
+            const dpEl = document.getElementById('input-dp');
+            dpEl.value = ''; dpEl.dataset.raw = '0'; dpEl.disabled = true;
+            dpEl.classList.add('bg-black/10','text-white/40');
+            dpEl.classList.remove('bg-white','text-gray-800');
+            document.getElementById('check-kasbon').checked = false;
+            const kbEl = document.getElementById('input-kasbon');
+            kbEl.value = ''; kbEl.dataset.raw = '0'; kbEl.disabled = true;
+            kbEl.classList.add('bg-black/10','text-white/40');
+            kbEl.classList.remove('bg-white','text-gray-800');
+            document.getElementById('info-kasbon-vendor').classList.add('hidden');
+        }
+
+        // Cek sisa kasbon saat pilih vendor
+        function cekSisaKasbonVendor(vendorName) {
+            const fmt = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
+            // Hitung total jumlah kasbon - cicilan yang sudah dibayar untuk vendor ini
+            const vendorKasbon = kasbonData.filter(k => k.vendor === vendorName && !k.lunas);
+            const totalJumlah = vendorKasbon.reduce((s,k) => s + (k.jumlah||0), 0);
+            const totalCicilan = vendorKasbon.reduce((s,k) => s + (k.cicilan||0), 0);
+            const sisa = totalJumlah - totalCicilan;
+            const infoEl = document.getElementById('info-kasbon-vendor');
+            const nominalEl = document.getElementById('info-kasbon-nominal');
+            if (sisa > 0 && infoEl && nominalEl) {
+                nominalEl.textContent = fmt(sisa);
+                infoEl.classList.remove('hidden');
+            } else if (infoEl) {
+                infoEl.classList.add('hidden');
+            }
+        }
+
+        // ===== TANDAI LUNAS =====
+        async function tandaiLunas(vendorName, vi) {
+            const fmt = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
+            const start = document.getElementById('riwayat-date-start').value;
+            const end = document.getElementById('riwayat-date-end').value;
+            const vendorTrx = riwayatData.filter(t => t.vendor===vendorName && t.tanggal>=start && t.tanggal<=end && !t.lunas);
+            if (vendorTrx.length === 0) return;
+
+            // Hitung total bruto dari transaksi
+            const totalBruto = vendorTrx.reduce((s,t) => s + t.qty*t.harga, 0);
+
+            // Ambil DP dari tabel dp_invoice untuk vendor ini (periode aktif)
+            const vendorDp = dpData.filter(d => d.vendor === vendorName && d.tanggal >= start && d.tanggal <= end);
+            const totalDp = vendorDp.reduce((s,d) => s + (d.jumlah||0), 0);
+
+            // Ambil kasbon aktif dari tabel kasbon untuk vendor ini
+            const vendorKasbon = kasbonData.filter(k => k.vendor === vendorName && !k.lunas);
+            const totalKasbonJumlah = vendorKasbon.reduce((s,k) => s + (k.jumlah||0), 0);
+            const totalKasbonCicilan = vendorKasbon.reduce((s,k) => s + (k.cicilan||0), 0);
+            const sisaKasbon = Math.max(0, totalKasbonJumlah - totalKasbonCicilan);
+
+            const totalBayar = totalBruto - totalDp;
+
+            if (!confirm('Tandai ' + vendorName + ' LUNAS sebesar ' + fmt(totalBayar) + '?\n\n' +
+                (sisaKasbon > 0 ? '⚠️ Sisa kasbon Rp ' + new Intl.NumberFormat("id-ID").format(sisaKasbon) + ' masih belum lunas.' : ''))) return;
+
+            const sesiId = vendorTrx[0].id;
+            try {
+                // Update transaksi_invoice jadi lunas
+                const { error } = await supabaseClient
+                    .from('transaksi_invoice')
+                    .update({ lunas: true, tgl_lunas: new Date().toISOString().split('T')[0], sesi_id: sesiId })
+                    .in('id', vendorTrx.map(t => t.id));
+                if (error) throw error;
+
+                // Update sesi_id di dp_invoice jika ada
+                if (vendorDp.length > 0) {
+                    await supabaseClient.from('dp_invoice')
+                        .update({ sesi_id: sesiId })
+                        .in('id', vendorDp.map(d => d.id));
+                    vendorDp.forEach(d => {
+                        const idx = dpData.findIndex(x => x.id === d.id);
+                        if (idx !== -1) dpData[idx].sesi_id = sesiId;
+                    });
+                }
+
+                // Tandai kasbon aktif vendor ini sebagai lunas, dan carry over sisa ke sesi baru
+                if (vendorKasbon.length > 0) {
+                    await supabaseClient.from('kasbon')
+                        .update({ lunas: true })
+                        .in('id', vendorKasbon.map(k => k.id));
+                    vendorKasbon.forEach(k => {
+                        const idx = kasbonData.findIndex(x => x.id === k.id);
+                        if (idx !== -1) kasbonData[idx].lunas = true;
+                    });
+                    // Carry over sisa kasbon ke sesi baru (jika masih ada hutang)
+                    if (sisaKasbon > 0) {
+                        const today2 = new Date().toISOString().split('T')[0];
+                        try {
+                            const { data: kbCarry, error: kbCarryErr } = await supabaseClient
+                                .from('kasbon')
+                                .insert([{ tanggal: today2, vendor: vendorName, jumlah: sisaKasbon, cicilan: 0, lunas: false }])
+                                .select().single();
+                            if (!kbCarryErr && kbCarry) {
+                                kasbonData.push({ id: kbCarry.id, tanggal: today2, vendor: vendorName, jumlah: sisaKasbon, cicilan: 0, lunas: false });
+                            }
+                        } catch(e2) { console.warn('carry over kasbon gagal:', e2); }
+                    }
+                }
+
+                // Update lokal riwayatData
+                const tglLunas = new Date().toISOString().split('T')[0];
+                vendorTrx.forEach(t => {
+                    const idx = riwayatData.findIndex(r=>r.id===t.id);
+                    if(idx!==-1){ riwayatData[idx].lunas=true; riwayatData[idx].tgl_lunas=tglLunas; riwayatData[idx].sesi_id=sesiId; }
+                });
+                showNotif('success','✅ Lunas!', vendorName + ' · ' + fmt(totalBayar), 4000);
+                if (sisaKasbon > 0) {
+                    showNotif('info','⚠️ Sisa Kasbon', vendorName + ' masih punya sisa kasbon ' + fmt(sisaKasbon), 5000);
+                }
+                filterRiwayatByPeriode();
+            } catch(err) {
+                showNotif('error','Gagal', err.message);
+            }
+        }
+
+        // ===== OVERRIDE selectOption untuk cek kasbon saat pilih vendor =====
+        const _origSelectOption = selectOption;
+        selectOption = function(id, value) {
+            _origSelectOption(id, value);
+            if (id === 'vendor') {
+                cekSisaKasbonVendor(value);
+                cartItems = [];
+                renderCart();
+            }
+        };
+
+        // Init cart render
+        renderCart();
+
+        // ===== SUBMIT LAMA (legacy - tidak dipakai, diganti submitCart) =====
+        // OLD SUBMIT HANDLER REMOVED (was causing SyntaxError)
+
+        // ===== CETAK / TAGIHAN =====
+        function initCetakPage() {
+            // Set default periode = minggu ini
+            const monday = getMondayOfWeek(new Date());
+            const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+            document.getElementById('cetak-date-start').value = formatDateInput(monday);
+            document.getElementById('cetak-date-end').value = formatDateInput(sunday);
+            document.getElementById('cetak-vendor').value = 'ALL';
+            document.getElementById('tagihan-preview-wrap').classList.add('hidden');
+            refreshCetakVendorList();
+        }
+
+        // ── HELPER: pecah array transaksi 1 vendor menjadi sesi-sesi ────────────────
+        function splitIntoSesi(rows) {
+            // rows: sudah sorted by id asc
+            const lunasRows  = rows.filter(r => r.lunas);
+            const aktifRows  = rows.filter(r => !r.lunas);
+            const sesiList   = []; // [{rows, isLunas}]
+
+            if (lunasRows.length > 0) {
+                const withSesiId    = lunasRows.filter(r => r.sesi_id);
+                const withoutSesiId = lunasRows.filter(r => !r.sesi_id);
+                const sesiIdMap = {};
+                withSesiId.forEach(r => {
+                    if (!sesiIdMap[r.sesi_id]) sesiIdMap[r.sesi_id] = [];
+                    sesiIdMap[r.sesi_id].push(r);
+                });
+                Object.values(sesiIdMap).forEach(grp => sesiList.push({ rows: grp, isLunas: true }));
+                if (withoutSesiId.length > 0) {
+                    const byDate = {};
+                    withoutSesiId.forEach(r => {
+                        const d = r.tgl_lunas || '__nodate__';
+                        if (!byDate[d]) byDate[d] = [];
+                        byDate[d].push(r);
+                    });
+                    Object.values(byDate).forEach(dateRows => {
+                        const sorted = [...dateRows].sort((a,b) => a.id - b.id);
+                        let cur = [sorted[0]];
+                        for (let i = 1; i < sorted.length; i++) {
+                            if (sorted[i].id - cur[cur.length-1].id <= 200) { cur.push(sorted[i]); }
+                            else { sesiList.push({ rows: cur, isLunas: true }); cur = [sorted[i]]; }
+                        }
+                        sesiList.push({ rows: cur, isLunas: true });
+                    });
+                }
+                sesiList.sort((a,b) => Math.min(...a.rows.map(r=>r.id)) - Math.min(...b.rows.map(r=>r.id)));
+            }
+            if (aktifRows.length > 0) sesiList.push({ rows: aktifRows, isLunas: false });
+            return sesiList;
+        }
+
+        // cetakSesiList: array global sesi yang sedang ditampilkan di tab cetak
+        let cetakSesiList = [];
+        let selectedSesiIndex = -1;
+
+        function refreshCetakVendorList() {
+            const start = document.getElementById('cetak-date-start').value;
+            const end   = document.getElementById('cetak-date-end').value;
+            const wrap  = document.getElementById('cetak-vendor-list-wrap');
+            if (!wrap) return;
+            if (!start || !end) { wrap.innerHTML = ''; return; }
+
+            const filtered = riwayatData
+                .filter(t => t.tanggal >= start && t.tanggal <= end)
+                .sort((a,b) => a.id - b.id);
+
+            if (filtered.length === 0) {
+                wrap.innerHTML = '<div class="bg-white/80 p-4 rounded-2xl text-center text-amber-700 text-xs font-bold border border-amber-100 shadow-sm">Tidak ada tagihan pada periode ini.</div>';
+                cetakSesiList = [];
+                return;
+            }
+
+            // Bangun sesi per vendor lalu flatten
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const byVendor = {};
+            filtered.forEach(t => {
+                if (!byVendor[t.vendor]) byVendor[t.vendor] = [];
+                byVendor[t.vendor].push(t);
+            });
+
+            cetakSesiList = [];
+            Object.keys(byVendor).forEach(vendor => {
+                const sesiArr = splitIntoSesi(byVendor[vendor]);
+                const total = sesiArr.length;
+                sesiArr.forEach((sesi, si) => {
+                    cetakSesiList.push({
+                        vendor,
+                        rows: sesi.rows,
+                        isLunas: sesi.isLunas,
+                        bonNum: si + 1,
+                        bonTotal: total
+                    });
+                });
+            });
+
+            let html = '<p class="text-[10px] font-black text-white/70 uppercase tracking-widest mb-1">Pilih Bon yang ingin dicetak:</p>';
+            cetakSesiList.forEach((sesi, idx) => {
+                const total = sesi.rows.reduce((s,r) => s + r.qty*r.harga, 0);
+                // Cek DP dan kasbon dari tabel terpisah
+                const sesiIdVal = sesi.rows[0].sesi_id;
+                const firstDate = sesi.rows[0].tanggal;
+                const lastDate  = sesi.rows[sesi.rows.length-1].tanggal;
+                const dpSesi = sesiIdVal
+                    ? dpData.filter(d => d.sesi_id === sesiIdVal && d.vendor === sesi.vendor)
+                    : dpData.filter(d => d.vendor === sesi.vendor && !d.sesi_id && d.tanggal >= firstDate && d.tanggal <= lastDate);
+                const hasDp = dpSesi.some(d => d.jumlah > 0);
+                const vendorKbSesi = kasbonData.filter(k => k.vendor === sesi.vendor && !k.lunas);
+                const hasKb = vendorKbSesi.some(k => k.jumlah > 0);
+                const isSelected = idx === selectedSesiIndex;
+                const lunasBadge = sesi.isLunas
+                    ? `<span class="text-[8px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded-full ml-1">✓ LUNAS</span>`
+                    : `<span class="text-[8px] font-black bg-gray-400 text-white px-1.5 py-0.5 rounded-full ml-1">BELUM LUNAS</span>`;
+                const dpKbBadge = (hasDp || hasKb)
+                    ? `<span class="text-[8px] font-black ${isSelected ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600'} px-1.5 py-0.5 rounded-full ml-1 uppercase">${hasDp && hasKb ? 'DP+KB' : hasDp ? 'DP' : 'KB'}</span>`
+                    : '';
+                const bonLabel = sesi.bonTotal > 1 ? ` — Bon ${sesi.bonNum}` : '';
+                // Hanya sesi LUNAS yang bisa diklik dan dicetak
+                if (sesi.isLunas) {
+                    html += `<div onclick="selectCetakSesi(${idx})" class="cetak-vendor-card cursor-pointer rounded-2xl p-4 flex items-center justify-between shadow-sm border-2 click-feedback transition-all ${isSelected ? 'bg-amber-500 border-amber-400 text-white' : 'bg-white border-gray-100 text-gray-800'}">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${isSelected ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'}">${idx+1}</div>
+                            <div>
+                                <div class="text-xs font-black uppercase tracking-wide flex items-center flex-wrap gap-0.5">
+                                    ${sesi.vendor}${bonLabel}${lunasBadge}${dpKbBadge}
+                                </div>
+                                <div class="text-[10px] font-bold opacity-70">${sesi.rows.length} item</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-black">${fmt(total)}</div>
+                            ${isSelected ? '<div class="text-[9px] font-bold opacity-70 mt-0.5">✓ Dipilih</div>' : ''}
+                        </div>
+                    </div>`;
+                } else {
+                    html += `<div class="cetak-vendor-card rounded-2xl p-4 flex items-center justify-between shadow-sm border-2 border-dashed border-gray-200 bg-gray-50 opacity-60">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs bg-gray-200 text-gray-500">${idx+1}</div>
+                            <div>
+                                <div class="text-xs font-black uppercase tracking-wide flex items-center flex-wrap gap-0.5 text-gray-500">
+                                    ${sesi.vendor}${bonLabel}${lunasBadge}${dpKbBadge}
+                                </div>
+                                <div class="text-[10px] font-bold text-gray-400">Tandai LUNAS dulu di tab Riwayat</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-black text-gray-400">${fmt(total)}</div>
+                            <div class="text-[9px] font-bold text-gray-400 mt-0.5">🔒 Terkunci</div>
+                        </div>
+                    </div>`;
+                }
+            });
+
+            wrap.innerHTML = html;
+            // Sembunyikan preview lama jika ada
+            document.getElementById('tagihan-preview-wrap').classList.add('hidden');
+        }
+
+        function selectCetakSesi(idx) {
+            selectedSesiIndex = idx;
+            refreshCetakVendorList();
+            generateTagihan();
+        }
+
+        function generateTagihan() {
+            const start = document.getElementById('cetak-date-start').value;
+            const end   = document.getElementById('cetak-date-end').value;
+            if (!start || !end) { showNotif('warning', 'Periode Kosong', 'Isi tanggal dari dan sampai!'); return; }
+
+            // Pastikan sesi sudah dipilih
+            if (selectedSesiIndex < 0 || selectedSesiIndex >= cetakSesiList.length) {
+                document.getElementById('tagihan-preview-wrap').classList.add('hidden');
+                return;
+            }
+
+            const sesi = cetakSesiList[selectedSesiIndex];
+            const { vendor, rows } = sesi;
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+
+
+
+
+
+            // Hitung DP sesi ini dari tabel dpData
+            const sesiIdVal = rows[0].sesi_id;
+            let dpSesiRows = [];
+            if (sesiIdVal) {
+                dpSesiRows = dpData.filter(d => d.sesi_id === sesiIdVal && d.vendor === vendor);
+            } else {
+                // Belum lunas: DP yang belum ada sesi_id (aktif)
+                const firstDate = rows[0].tanggal;
+                const lastDate  = rows[rows.length-1].tanggal;
+                dpSesiRows = dpData.filter(d => d.vendor === vendor && !d.sesi_id && d.tanggal >= firstDate && d.tanggal <= lastDate);
+            }
+            const dpVal = dpSesiRows.reduce((s,d) => s + (d.jumlah||0), 0);
+
+            // Kasbon aktif (belum lunas) = yang relevan untuk sesi ini
+            const vendorKasbonAktif = kasbonData.filter(k => k.vendor === vendor && !k.lunas);
+            const totalKasbonAwal = vendorKasbonAktif.reduce((s,k) => s + (k.jumlah||0), 0);
+            // Cicilan = yang diinput di Riwayat Data (field cicilan di kasbon aktif)
+            const totalKasbonBayar = vendorKasbonAktif.reduce((s,k) => s + (k.cicilan||0), 0);
+            // Sisa kasbon = jumlah awal - cicilan yang dibayar
+            const sisaKasbonCarryOver = totalKasbonAwal - totalKasbonBayar;
+            const sisaKasbonBersih = sisaKasbonCarryOver > 0 ? sisaKasbonCarryOver : 0;
+
+            // Build invoice header
+            document.getElementById('inv-date').textContent = 'INV-2026-' + Math.floor(100000 + Math.random() * 900000);
+            document.getElementById('inv-current-time').textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+            const startLabel = new Date(start + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+            const endLabel   = new Date(end   + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            document.getElementById('inv-periode').textContent = startLabel + ' – ' + endLabel;
+            document.getElementById('inv-vendor').textContent = vendor;
+
+            // Build table rows
+            let bodyHtml = '';
+            let subtotal = 0;
+            rows.forEach((r, i) => {
+                const jumlah = r.qty * r.harga;
+                subtotal += jumlah;
+                const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+                bodyHtml += `<tr style="background:${bg};">
+                    <td style="padding:8px 12px;font-size:9px;font-weight:700;color:#94a3b8;border-bottom:1px solid #f1f5f9;">${i+1}</td>
+                    <td style="padding:8px 12px;font-size:10px;font-weight:800;color:#1e293b;border-bottom:1px solid #f1f5f9;">${r.jenis}</td>
+                    <td style="padding:8px 8px;text-align:center;font-size:10px;font-weight:900;color:#0f172a;border-bottom:1px solid #f1f5f9;">${r.qty}</td>
+                    <td style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;color:#475569;border-bottom:1px solid #f1f5f9;">${fmt(r.harga)}</td>
+                    <td style="padding:8px 12px;text-align:right;font-size:10px;font-weight:900;color:#0f766e;border-bottom:1px solid #f1f5f9;">${fmt(jumlah)}</td>
+                </tr>`;
+            });
+            document.getElementById('inv-items-body').innerHTML = bodyHtml;
+
+            // Tagihan = subtotal - DP - cicilan kasbon yang sudah dibayar
+            let netTotal = subtotal - dpVal - totalKasbonBayar;
+
+            let summaryHtml = `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+                <span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Subtotal</span>
+                <span style="font-size:10px;font-weight:900;color:#1e293b;">${fmt(subtotal)}</span>
+            </div>`;
+
+            if (dpVal > 0) {
+                summaryHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+                    <span style="font-size:9px;font-weight:700;color:#2563eb;text-transform:uppercase;">DP</span>
+                    <span style="font-size:10px;font-weight:900;color:#2563eb;">- ${fmt(dpVal)}</span>
+                </div>`;
+            }
+
+            // Tampilkan info kasbon yang sudah dilunasi di sesi ini (cicilan yang dibayar)
+            if (totalKasbonAwal > 0) {
+                summaryHtml += `<div style="display:flex;justify-content:space-between;align-items:center;background:#fef2f2;margin:2px -4px;padding:6px 4px;border-radius:6px;">
+                    <span style="font-size:9px;font-weight:800;color:#dc2626;text-transform:uppercase;">Kasbon (awal: ${fmt(totalKasbonAwal)})</span>
+                    <span style="font-size:10px;font-weight:900;color:#dc2626;">- ${fmt(totalKasbonBayar)}</span>
+                </div>`;
+            }
+            // Tampilkan sisa kasbon carry over ke sesi berikutnya (jika ada)
+            if (sisaKasbonBersih > 0) {
+                summaryHtml += `<div style="display:flex;justify-content:space-between;align-items:center;background:#fef9c3;margin:2px -4px;padding:6px 4px;border-radius:6px;">
+                    <span style="font-size:9px;font-weight:800;color:#b45309;text-transform:uppercase;">⚠️ Sisa Kasbon (dibawa ke tagihan berikutnya)</span>
+                    <span style="font-size:10px;font-weight:900;color:#b45309;">${fmt(sisaKasbonBersih)}</span>
+                </div>`;
+            }
+
+            const summaryEl = document.getElementById('inv-summary');
+            summaryEl.innerHTML = summaryHtml +
+                `<div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid #e2e8f0;margin-top:8px;padding-top:8px;">
+                    <span style="font-size:10px;font-weight:900;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;">TOTAL TAGIHAN</span>
+                    <span style="font-size:15px;font-weight:900;color:#2563eb;">${fmt(netTotal)}</span>
+                </div>`;
+
+            document.getElementById('inv-total').textContent = fmt(netTotal);
+            document.getElementById('tagihan-preview-wrap').classList.remove('hidden');
+            document.getElementById('tagihan-preview-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function copyToClipboard() {
+            navigator.clipboard.writeText(document.getElementById('inv-norek-text').innerText).then(() => {
+                document.getElementById('toast').classList.remove('hidden');
+                setTimeout(() => { document.getElementById('toast').classList.add('hidden'); }, 2000);
+            });
+        }
+        function downloadTagihan() {
+            const card = document.getElementById('invoice-card');
+            const vendorName = (document.getElementById('inv-vendor').textContent || 'EM2STUDIO').trim();
+            const btn = document.getElementById('btn-download');
+            btn.disabled = true;
+            showNotif('info', 'Memproses JPEG...', 'Sedang merender tagihan, harap tunggu.', 4000);
+
+            // Pastikan card terlihat saat di-render html2canvas
+            const wrap = document.getElementById('tagihan-preview-wrap');
+            const wasHidden = wrap.classList.contains('hidden');
+            wrap.classList.remove('hidden');
+
+            setTimeout(() => {
+                html2canvas(card, {
+                    scale: 3,
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    imageTimeout: 5000
+                }).then(canvas => {
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                    const filename = 'Tagihan-' + vendorName + '-' + new Date().toLocaleDateString('id-ID').replace(/\//g,'-') + '.jpg';
+                    // Cara paling reliable lintas browser
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = filename;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { document.body.removeChild(a); }, 300);
+                    btn.disabled = false;
+                    showNotif('success', 'Berhasil Diunduh!', 'File JPEG tersimpan di folder Downloads.', 3000);
+                }).catch(err => {
+                    console.error('html2canvas error:', err);
+                    btn.disabled = false;
+                    showNotif('error', 'Gagal Download', err.message);
+                });
+            }, 100);
+        }
+
+        let riwayatData = [];
+
+        async function loadTransaksiFromSupabase() {
+            setupSupabaseClient();
+            if (!supabaseClient || !navigator.onLine) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('transaksi_invoice')
+                    .select('*')
+                    .order('tanggal', { ascending: false });
+                if (data && !error) {
+                    riwayatData = data.map(r => ({
+                        id: r.id,
+                        tanggal: r.tanggal,
+                        vendor: r.vendor,
+                        jenis: r.jenis,
+                        qty: r.qty,
+                        harga: r.harga,
+                        lunas: r.lunas || false,
+                        tgl_lunas: r.tgl_lunas || null,
+                        sesi_id: r.sesi_id || null
+                    }));
+                }
+            } catch (err) { console.log('loadTransaksi error:', err); }
+        }
+
+        // ===== DATA GLOBAL DP & KASBON =====
+        let dpData = [];    // [{id, tanggal, vendor, jumlah, sesi_id}]
+        let kasbonData = []; // [{id, tanggal, vendor, jumlah, cicilan, lunas}]
+
+        async function loadDpFromSupabase() {
+            setupSupabaseClient();
+            if (!supabaseClient || !navigator.onLine) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('dp_invoice')
+                    .select('*')
+                    .order('tanggal', { ascending: false });
+                if (data && !error) {
+                    dpData = data.map(r => ({
+                        id: r.id,
+                        tanggal: r.tanggal,
+                        vendor: r.vendor,
+                        jumlah: r.jumlah || 0,
+                        sesi_id: r.sesi_id || null
+                    }));
+                }
+            } catch (err) { console.log('loadDp error:', err); }
+        }
+
+        async function loadKasbonFromSupabase() {
+            setupSupabaseClient();
+            if (!supabaseClient || !navigator.onLine) return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('kasbon')
+                    .select('*')
+                    .order('tanggal', { ascending: false });
+                if (data && !error) {
+                    kasbonData = data.map(r => ({
+                        id: r.id,
+                        tanggal: r.tanggal,
+                        vendor: r.vendor,
+                        jumlah: r.jumlah || 0,
+                        cicilan: r.cicilan || 0,
+                        lunas: r.lunas || false
+                    }));
+                }
+            } catch (err) { console.log('loadKasbon error:', err); }
+        }
+
+        async function saveTransaksiToSupabase(entry) {
+            setupSupabaseClient();
+            if (!supabaseClient) {
+                showNotif('error', 'Supabase Belum Dikonfigurasi', 'Buka Pengaturan → isi URL & Key Supabase.');
+                return null;
+            }
+            if (!navigator.onLine) {
+                showNotif('warning', 'Tidak Ada Koneksi', 'Data tidak tersimpan ke Supabase.');
+                return null;
+            }
+            try {
+                const { data, error } = await supabaseClient
+                    .from('transaksi_invoice')
+                    .insert([{
+                        tanggal: entry.tanggal,
+                        vendor: entry.vendor,
+                        jenis: entry.jenis,
+                        qty: entry.qty,
+                        harga: entry.harga
+                    }])
+                    .select()
+                    .single();
+                if (error) { console.error('saveTransaksi error:', error); showNotif('error', 'Gagal Simpan', error.message); return null; }
+                if (data && !error) return data.id;
+            } catch (err) { console.log('saveTransaksi error:', err); showNotif('error', 'Error Koneksi Supabase', err.message); }
+            return null;
+        }
+
+        function getMondayOfWeek(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = (day === 0 ? -6 : 1 - day);
+            d.setDate(d.getDate() + diff);
+            return d;
+        }
+        function formatDateInput(date) { return date.toISOString().split('T')[0]; }
+        function formatDateLabel(date) {
+            return date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+        function setWeekRange(baseDate) {
+            const monday = getMondayOfWeek(baseDate);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            document.getElementById('riwayat-date-start').value = formatDateInput(monday);
+            document.getElementById('riwayat-date-end').value = formatDateInput(sunday);
+            document.getElementById('riwayat-periode-label').textContent =
+                formatDateLabel(monday) + '  —  ' + formatDateLabel(sunday);
+            filterRiwayatByPeriode();
+        }
+        function setWeekCurrent() { setWeekRange(new Date()); }
+        function setWeekPrev() {
+            const start = document.getElementById('riwayat-date-start').value;
+            const base = start ? new Date(start) : new Date();
+            base.setDate(base.getDate() - 7);
+            setWeekRange(base);
+        }
+        // track open vendor index
+        let openVendorIndex = null;
+
+        function recalcVendorSubtotal(vi) {
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const table = document.getElementById('vendor-table-' + vi);
+            if (!table) return;
+            let sub = 0;
+            table.querySelectorAll('tbody tr').forEach(row => {
+                const harga = parseFloat(row.dataset.harga) || 0;
+                const id = row.dataset.id;
+                const trx = id ? riwayatData.find(t => t.id == id) : null;
+                const qty = trx ? trx.qty : 0;
+                sub += qty * harga;
+                const jumlahCell = row.querySelector('.cell-jumlah');
+                if (jumlahCell) jumlahCell.textContent = fmt(qty * harga);
+            });
+            // Apply DP
+            const dpRow = document.getElementById('dp-row-' + vi);
+            let subtotal = sub;
+            if (dpRow) {
+                const dpText = dpRow.querySelector('td:last-child').textContent.replace(/[^0-9]/g,'');
+                const dp = parseInt(dpText) || 0;
+                subtotal = sub - dp;
+            }
+            // Apply Kasbon (manual input)
+            const kasbonInput = document.getElementById('kasbon-input-' + vi);
+            if (kasbonInput) {
+                const kasbonUsed = parseFloat(kasbonInput.dataset.raw) || 0;
+                subtotal = Math.max(0, subtotal - kasbonUsed);
+            }
+            const subtotalCell = document.getElementById('subtotal-' + vi);
+            if (subtotalCell) subtotalCell.textContent = fmt(subtotal);
+            const headerTotal = document.getElementById('header-total-' + vi);
+            if (headerTotal) headerTotal.textContent = fmt(subtotal);
+            // update grand total
+            let grand = 0;
+            document.querySelectorAll('[id^="vendor-table-"]').forEach((tbl) => {
+                tbl.querySelectorAll('tbody tr').forEach(row => {
+                    const h = parseFloat(row.dataset.harga) || 0;
+                    const rid = row.dataset.id;
+                    const rt = rid ? riwayatData.find(t => t.id == rid) : null;
+                    const q = rt ? rt.qty : 0;
+                    grand += q * h;
+                });
+            });
+            document.getElementById('riwayat-grand-total').textContent = fmt(grand);
+        }
+
+        function showEditQtyPopup(id, vi) {
+            const trx = riwayatData.find(t => t.id == id);
+            if (!trx) return;
+            if (trx.lunas) { showNotif('warning', 'Tidak Bisa Diedit', 'Transaksi LUNAS tidak bisa diedit!'); return; }
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const overlay = document.createElement('div');
+            overlay.id = 'edit-qty-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;';
+            overlay.innerHTML = `
+                <div style="background:#fff;border-radius:20px;padding:24px;width:100%;max-width:340px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <p style="font-size:11px;font-weight:900;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Edit QTY</p>
+                    <p style="font-size:13px;font-weight:800;color:#1f2937;margin-bottom:4px;">${trx.vendor} &middot; ${trx.jenis}</p>
+                    <p style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:16px;">Harga satuan: ${fmt(trx.harga)}</p>
+                    <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:6px;">QTY Baru</label>
+                    <input id="edit-qty-input" type="number" min="1" value="${trx.qty}"
+                        style="width:100%;padding:14px;border:2px solid #10b981;border-radius:12px;font-size:22px;font-weight:900;color:#1f2937;text-align:center;background:#f0fdf4;margin-bottom:8px;outline:none;box-sizing:border-box;"
+                        oninput="previewQtyEdit(${trx.harga})">
+                    <div id="edit-qty-preview" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px 12px;margin-bottom:16px;font-size:12px;font-weight:800;color:#065f46;text-align:center;">
+                        Total: ${fmt(trx.harga * trx.qty)}
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="saveEditQtyPopup(${id},${vi})" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:900;font-size:13px;padding:14px;border-radius:12px;border:none;cursor:pointer;">&#128190; Simpan</button>
+                        <button onclick="closeEditQtyOverlay()" style="flex:1;background:#f3f4f6;color:#6b7280;font-weight:900;font-size:13px;padding:14px;border-radius:12px;border:none;cursor:pointer;">&#10005; Batal</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+            setTimeout(() => { document.getElementById('edit-qty-input').select(); }, 100);
+        }
+
+        function previewQtyEdit(harga) {
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const qty = parseInt(document.getElementById('edit-qty-input').value) || 0;
+            const el = document.getElementById('edit-qty-preview');
+            if (el) el.textContent = 'Total: ' + fmt(harga * qty);
+        }
+
+        function closeEditQtyOverlay() {
+            const el = document.getElementById('edit-qty-overlay');
+            if (el) el.remove();
+        }
+
+        async function saveEditQtyPopup(id, vi) {
+            const inputEl = document.getElementById('edit-qty-input');
+            const newQty = parseInt(inputEl.value) || 0;
+            if (newQty <= 0) { showNotif('warning', 'QTY Tidak Valid', 'QTY harus lebih dari 0!'); return; }
+
+            const idx = riwayatData.findIndex(t => t.id == id);
+            if (idx === -1) return;
+            const oldQty = riwayatData[idx].qty;
+
+            // Update lokal dulu
+            riwayatData[idx].qty = newQty;
+
+            // Update tampilan qty di tabel
+            const displayEl = document.getElementById('qty-display-' + id);
+            if (displayEl) displayEl.textContent = newQty;
+
+            closeEditQtyOverlay();
+            recalcVendorSubtotal(vi);
+
+            try {
+                setupSupabaseClient();
+                if (supabaseClient && navigator.onLine) {
+                    const { error } = await supabaseClient
+                        .from('transaksi_invoice')
+                        .update({ qty: newQty })
+                        .eq('id', id);
+                    if (error) throw error;
+                    showNotif('success', 'QTY Disimpan ✅', 'Diperbarui ke ' + newQty + ' pcs', 2000);
+                } else {
+                    showNotif('warning', 'Tersimpan Lokal', 'QTY diperbarui lokal (offline)', 2000);
+                }
+            } catch(e) {
+                // Rollback
+                riwayatData[idx].qty = oldQty;
+                if (displayEl) displayEl.textContent = oldQty;
+                recalcVendorSubtotal(vi);
+                showNotif('error', 'Gagal Simpan QTY', e.message);
+            }
+        }
+
+        function formatKasbonInput(el, vi) {
+            const raw = el.value.replace(/[^0-9]/g, '');
+            const num = parseInt(raw) || 0;
+            const kasbonSisa = parseFloat(el.dataset.kasbon) || 0;   // sisa hutang kasbon
+            const kasbonMax  = parseFloat(el.dataset.kasbonMax) || kasbonSisa; // max = subtotal after DP
+            // Cicilan tidak boleh melebihi sisa hutang MAUPUN subtotal tagihan
+            const clamped = Math.min(Math.max(num, 0), Math.min(kasbonSisa, kasbonMax));
+            el.dataset.raw = clamped;
+            el.value = clamped > 0 ? new Intl.NumberFormat('id-ID').format(clamped) : '';
+            setTimeout(() => { el.selectionStart = el.selectionEnd = el.value.length; }, 0);
+            recalcKasbon(vi);
+        }
+
+        function recalcKasbon(vi) {
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const kasbonInput = document.getElementById('kasbon-input-' + vi);
+            if (!kasbonInput) return;
+            const kasbonMax = parseFloat(kasbonInput.dataset.kasbon) || 0;
+            let kasbonUsed = parseFloat(kasbonInput.dataset.raw) || 0;
+            // Clamp (sudah ditangani formatKasbonInput, ini fallback)
+            if (kasbonUsed > kasbonMax) kasbonUsed = kasbonMax;
+            if (kasbonUsed < 0) kasbonUsed = 0;
+            // Update tampilan sisa kasbon (kasbon_awal - cicilan yg diinput)
+            const sisaKasbon = Math.max(0, kasbonMax - kasbonUsed);
+            const sisaEl = document.getElementById('kasbon-sisa-' + vi);
+            if (sisaEl) sisaEl.textContent = fmt(sisaKasbon);
+            // Save to vendorMeta
+            const vendorName = kasbonInput.dataset.vendor;
+            if (vendorName) {
+                if (!vendorMeta[vendorName]) vendorMeta[vendorName] = {};
+                vendorMeta[vendorName].kasbonUsed = kasbonUsed;
+            }
+            // Subtotal = total bruto - DP - cicilan kasbon
+            const table = document.getElementById('vendor-table-' + vi);
+            let sub = 0;
+            if (table) {
+                table.querySelectorAll('tbody tr').forEach(row => {
+                    const h = parseFloat(row.dataset.harga) || 0;
+                    const qEl = row.querySelector('[id^="qty-display-"]');
+                    const q = qEl ? (parseFloat(qEl.textContent) || 0) : 0;
+                    sub += q * h;
+                });
+            }
+            const dpRow = document.getElementById('dp-row-' + vi);
+            let subtotal = sub;
+            if (dpRow) {
+                const dpText = dpRow.querySelector('td:last-child').textContent.replace(/[^0-9]/g,'');
+                const dp = parseInt(dpText) || 0;
+                subtotal = sub - dp;
+            }
+            subtotal = Math.max(0, subtotal - kasbonUsed);
+            const subtotalCell = document.getElementById('subtotal-' + vi);
+            if (subtotalCell) subtotalCell.textContent = fmt(subtotal);
+        }
+
+        async function autoSaveKasbon(vi) {
+            const kasbonInput = document.getElementById('kasbon-input-' + vi);
+            if (!kasbonInput) return;
+            const vendorName = kasbonInput.dataset.vendor;
+            const kasbonUsed = parseFloat(kasbonInput.dataset.raw) || 0;
+            const kasbonId = parseInt(kasbonInput.dataset.kasbonId) || 0;
+
+            if (!kasbonId) { showNotif('error','Error','ID kasbon tidak ditemukan!'); return; }
+
+            kasbonInput.classList.add('border-green-400', 'ring-2', 'ring-green-300');
+
+            try {
+                const { error } = await supabaseClient
+                    .from('kasbon')
+                    .update({ cicilan: kasbonUsed })
+                    .eq('id', kasbonId);
+                if (error) throw error;
+
+                const idx = kasbonData.findIndex(k => k.id === kasbonId);
+                if (idx !== -1) kasbonData[idx].cicilan = kasbonUsed;
+
+                const kasbonMax = parseFloat(kasbonInput.dataset.kasbon) || 0;
+                const sisaEl = document.getElementById('kasbon-sisa-' + vi);
+                if (sisaEl) {
+                    const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+                    sisaEl.textContent = fmt(kasbonMax - kasbonUsed);
+                }
+
+                showNotif('success', 'Cicilan Tersimpan', vendorName + ' · cicilan ' + new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(kasbonUsed), 2500);
+            } catch(e) {
+                showNotif('error', 'Gagal Simpan Cicilan', e.message);
+            } finally {
+                setTimeout(() => {
+                    kasbonInput.classList.remove('border-green-400', 'ring-2', 'ring-green-300');
+                }, 1500);
+            }
+        }
+
+        async function hapusTransaksi(id) {
+            const trx = riwayatData.find(t => t.id == id);
+            if (!trx) return;
+            if (trx.lunas) { showNotif('warning', 'Tidak Bisa Dihapus', 'Transaksi sudah LUNAS tidak bisa dihapus!'); return; }
+            if (!confirm('Hapus transaksi ' + trx.jenis + ' (' + trx.qty + ' pcs) untuk ' + trx.vendor + '?')) return;
+            try {
+                const { error } = await supabaseClient.from('transaksi_invoice').delete().eq('id', id);
+                if (error) throw error;
+                const idx = riwayatData.findIndex(t => t.id == id);
+                if (idx !== -1) riwayatData.splice(idx, 1);
+                showNotif('success', 'Terhapus!', trx.jenis + ' · ' + trx.vendor, 2500);
+                filterRiwayatByPeriode();
+            } catch(e) {
+                showNotif('error', 'Gagal Hapus', e.message);
+            }
+        }
+
+        function showEditJenisRow(id) {
+            const trx = riwayatData.find(t => t.id == id);
+            if (!trx) return;
+            if (trx.lunas) { showNotif('warning', 'Tidak Bisa Diedit', 'Transaksi LUNAS tidak bisa diedit!'); return; }
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const jenisOptions = Object.keys(appData.prices).sort((a,b) => a.localeCompare(b,'id'));
+            const optionsHtml = jenisOptions.map(j =>
+                `<option value="${j}" ${j === trx.jenis ? 'selected' : ''}>${j} (${fmt(appData.prices[j])})</option>`
+            ).join('');
+            const overlay = document.createElement('div');
+            overlay.id = 'edit-jenis-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;';
+            overlay.innerHTML = `
+                <div style="background:#fff;border-radius:20px;padding:24px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <p style="font-size:11px;font-weight:900;color:#6b7280;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">Edit Jenis Transaksi</p>
+                    <p style="font-size:13px;font-weight:800;color:#1f2937;margin-bottom:16px;">${trx.vendor} &middot; ${trx.tanggal}</p>
+                    <label style="font-size:11px;font-weight:700;color:#6b7280;display:block;margin-bottom:6px;">Pilih Jenis Baru</label>
+                    <select id="edit-jenis-select" style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:12px;font-size:13px;font-weight:700;color:#1f2937;background:#f9fafb;margin-bottom:12px;outline:none;" onchange="previewHargaEdit(${id})">
+                        ${optionsHtml}
+                    </select>
+                    <div id="edit-harga-preview" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px 12px;margin-bottom:16px;font-size:12px;font-weight:800;color:#065f46;">
+                        Harga: ${fmt(appData.prices[trx.jenis] || 0)} / pcs &rarr; Total: ${fmt((appData.prices[trx.jenis] || 0) * trx.qty)}
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="saveEditJenis(${id})" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:900;font-size:13px;padding:14px;border-radius:12px;border:none;cursor:pointer;">&#128190; Simpan</button>
+                        <button onclick="closeEditJenisOverlay()" style="flex:1;background:#f3f4f6;color:#6b7280;font-weight:900;font-size:13px;padding:14px;border-radius:12px;border:none;cursor:pointer;">&#10005; Batal</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+        }
+
+        function previewHargaEdit(id) {
+            const trx = riwayatData.find(t => t.id == id);
+            if (!trx) return;
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            const newJenis = document.getElementById('edit-jenis-select').value;
+            const newHarga = appData.prices[newJenis] || 0;
+            const preview = document.getElementById('edit-harga-preview');
+            if (preview) preview.innerHTML = 'Harga: ' + fmt(newHarga) + ' / pcs &rarr; Total: ' + fmt(newHarga * trx.qty);
+        }
+
+        function closeEditJenisOverlay() {
+            const el = document.getElementById('edit-jenis-overlay');
+            if (el) el.remove();
+        }
+
+        async function saveEditJenis(id) {
+            const trx = riwayatData.find(t => t.id == id);
+            if (!trx) return;
+            const newJenis = document.getElementById('edit-jenis-select').value;
+            const newHarga = appData.prices[newJenis] || 0;
+            if (!newJenis || newHarga <= 0) { showNotif('warning', 'Data Tidak Valid', 'Jenis atau harga tidak valid!'); return; }
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            try {
+                const { error } = await supabaseClient.from('transaksi_invoice')
+                    .update({ jenis: newJenis, harga: newHarga })
+                    .eq('id', id);
+                if (error) throw error;
+                const idx = riwayatData.findIndex(t => t.id == id);
+                if (idx !== -1) { riwayatData[idx].jenis = newJenis; riwayatData[idx].harga = newHarga; }
+                showNotif('success', 'Jenis Diperbarui ✅', newJenis + ' · ' + fmt(newHarga) + ' / pcs', 3000);
+                closeEditJenisOverlay();
+                filterRiwayatByPeriode();
+            } catch(e) {
+                showNotif('error', 'Gagal Update', e.message);
+            }
+        }
+
+                function filterRiwayatByPeriode() {
+            const start = document.getElementById('riwayat-date-start').value;
+            const end   = document.getElementById('riwayat-date-end').value;
+            if (!start || !end) return;
+            openVendorIndex = null;
+            const filtered = riwayatData.filter(t => t.tanggal >= start && t.tanggal <= end);
+
+            vendorMeta = {};
+
+            const grouped = {};
+            const filteredSorted = [...filtered].sort((a, b) => a.id - b.id);
+            filteredSorted.forEach(t => {
+                if (!grouped[t.vendor]) grouped[t.vendor] = [];
+                grouped[t.vendor].push(t);
+            });
+            const container = document.getElementById('riwayat-vendor-tables');
+            container.innerHTML = '';
+            const fmt = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+            let grandTotal = 0;
+            const vendors = Object.keys(grouped);
+            if (vendors.length === 0) {
+                container.innerHTML = '<div class="bg-white p-6 rounded-2xl text-center text-gray-400 text-xs font-bold border border-gray-100 shadow-sm">Tidak ada transaksi pada periode ini.</div>';
+                document.getElementById('riwayat-summary').classList.add('hidden');
+                return;
+            }
+
+            const blocks = [];
+            vendors.forEach(vendor => {
+                const rows = grouped[vendor];
+                const lunasRows  = rows.filter(r => r.lunas);
+                const aktifRows  = rows.filter(r => !r.lunas);
+                const sesiList = [];
+
+                if (lunasRows.length > 0) {
+                    const withSesiId    = lunasRows.filter(r => r.sesi_id);
+                    const withoutSesiId = lunasRows.filter(r => !r.sesi_id);
+
+                    const sesiIdMap = {};
+                    withSesiId.forEach(r => {
+                        const k = r.sesi_id;
+                        if (!sesiIdMap[k]) sesiIdMap[k] = [];
+                        sesiIdMap[k].push(r);
+                    });
+                    Object.values(sesiIdMap).forEach(grp => sesiList.push({ rows: grp }));
+
+                    if (withoutSesiId.length > 0) {
+                        const byDate = {};
+                        withoutSesiId.forEach(r => {
+                            const d = r.tgl_lunas || '__nodate__';
+                            if (!byDate[d]) byDate[d] = [];
+                            byDate[d].push(r);
+                        });
+                        Object.values(byDate).forEach(dateRows => {
+                            const sorted = [...dateRows].sort((a,b) => a.id - b.id);
+                            let currentSesi = [sorted[0]];
+                            for (let i = 1; i < sorted.length; i++) {
+                                const prevId = currentSesi[currentSesi.length - 1].id;
+                                const currId = sorted[i].id;
+                                if (currId - prevId <= 200) {
+                                    currentSesi.push(sorted[i]);
+                                } else {
+                                    sesiList.push({ rows: currentSesi });
+                                    currentSesi = [sorted[i]];
+                                }
+                            }
+                            sesiList.push({ rows: currentSesi });
+                        });
+                    }
+
+                    sesiList.sort((a, b) => Math.min(...a.rows.map(r=>r.id)) - Math.min(...b.rows.map(r=>r.id)));
+                }
+
+                sesiList.forEach(sesi => {
+                    blocks.push({ vendor, rows: sesi.rows, isLunasBlock: true });
+                });
+
+                if (aktifRows.length > 0) {
+                    blocks.push({ vendor, rows: aktifRows, isLunasBlock: false });
+                }
+            });
+
+            blocks.forEach((blk, vi) => {
+                const { vendor, rows, isLunasBlock } = blk;
+                const vendorTotal = rows.reduce((sum, r) => sum + r.qty * r.harga, 0);
+                grandTotal += vendorTotal;
+                const tableId = 'vendor-table-' + vi;
+                const rowsHtml = rows.map((r, i) => {
+                    const lockStyle = isLunasBlock ? 'opacity:0.5;pointer-events:none;' : '';
+                    return '<tr class="border-b border-gray-50 hover:bg-emerald-50 transition-colors" data-id="' + r.id + '" data-harga="' + r.harga + '">' +
+                    '<td class="py-2 px-2 text-center text-[10px] font-bold text-gray-400">' + (i+1) + '</td>' +
+                    '<td class="py-2 px-2 text-center text-[10px] font-bold text-gray-800">' + r.vendor + '</td>' +
+                    '<td class="py-1.5 px-2">' +
+                    '<div class="text-[10px] font-semibold text-gray-700 leading-tight">' + r.jenis + '</div>' +
+                    '<div class="flex gap-1 mt-1" style="' + lockStyle + '">' +
+                    '<button onclick="showEditJenisRow(' + r.id + ')" class="text-[8px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md hover:bg-blue-200 click-feedback" style="line-height:1.4">&#9998; Jenis</button>' +
+                    '<button onclick="hapusTransaksi(' + r.id + ')" class="text-[8px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded-md hover:bg-red-200 click-feedback" style="line-height:1.4">&#128465;</button>' +
+                    '</div>' +
+                    '</td>' +
+                    '<td class="py-2 px-2 text-center">' +
+                    '<div class="flex flex-col items-center gap-0.5">' +
+                    '<span class="qty-display text-[11px] font-black text-gray-800" id="qty-display-' + r.id + '">' + r.qty + '</span>' +
+                    (!isLunasBlock ? '<button onclick="showEditQtyPopup(' + r.id + ',' + vi + ')" class="text-[7px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md hover:bg-emerald-200 click-feedback" style="line-height:1.4">&#9998; Edit</button>' : '') +
+                    '</div>' +
+                    '</td>' +
+                    '<td class="py-2 px-2 text-right text-[10px] text-gray-600">' + fmt(r.harga) + '</td>' +
+                    '<td class="py-2 px-2 pr-3 text-right text-[10px] font-black text-teal-700 cell-jumlah">' + fmt(r.qty * r.harga) + '</td>' +
+                    '</tr>';
+                }).join('');
+                let dpVal = 0, kasbonVal = 0, kasbonUsed = 0, kasbonId = 0;
+                let kasbonAwal = 0, kasbonCicilan = 0; 
+                if (isLunasBlock) {
+                    const sesiIdRow = rows[0].sesi_id;
+                    if (sesiIdRow) {
+                        const dpSesi = dpData.filter(d => d.sesi_id === sesiIdRow && d.vendor === vendor);
+                        dpVal = dpSesi.reduce((s,d) => s + (d.jumlah||0), 0);
+                    } else {
+                        // fallback: DP vendor pada periode tanggal transaksi
+                        const firstDate = rows[0].tanggal;
+                        const lastDate  = rows[rows.length-1].tanggal;
+                        const dpSesi = dpData.filter(d => d.vendor === vendor && d.tanggal >= firstDate && d.tanggal <= lastDate);
+                        dpVal = dpSesi.reduce((s,d) => s + (d.jumlah||0), 0);
+                    }
+                    const kasbonAktifLunas = kasbonData.filter(k => k.vendor === vendor && !k.lunas);
+                    const totalJumlahL = kasbonAktifLunas.reduce((s,k) => s + (k.jumlah||0), 0);
+                    const totalCicilanL = kasbonAktifLunas.reduce((s,k) => s + (k.cicilan||0), 0);
+                    const sisaKasbonL = Math.max(0, totalJumlahL - totalCicilanL);
+                    kasbonAwal = totalJumlahL;
+                    kasbonCicilan = totalCicilanL;
+                    if (sisaKasbonL > 0 && kasbonAktifLunas.length > 0) {
+                        kasbonVal = sisaKasbonL;
+                        kasbonId = kasbonAktifLunas[0].id;
+                    }
+                    kasbonUsed = totalCicilanL;
+                } else {
+                    const firstDate = rows[0].tanggal;
+                    const lastDate  = rows[rows.length-1].tanggal;
+                    const dpAktif = dpData.filter(d => d.vendor === vendor && !d.sesi_id && d.tanggal >= firstDate && d.tanggal <= lastDate);
+                    dpVal = dpAktif.reduce((s,d) => s + (d.jumlah||0), 0);
+
+                    const kasbonAktif = kasbonData.filter(k => k.vendor === vendor && !k.lunas);
+                    const totalJumlah = kasbonAktif.reduce((s,k) => s + (k.jumlah||0), 0);
+                    const totalCicilan = kasbonAktif.reduce((s,k) => s + (k.cicilan||0), 0);
+                    const sisaKasbon = Math.max(0, totalJumlah - totalCicilan);
+                    kasbonAwal = totalJumlah;
+                    kasbonCicilan = totalCicilan;
+                    if (sisaKasbon > 0 && kasbonAktif.length > 0) {
+                        kasbonVal = sisaKasbon;
+                        kasbonUsed = totalCicilan;
+                        kasbonId = kasbonAktif[0].id;
+                    }
+                }
+
+                const subtotalBruto = vendorTotal;
+                const subtotalAfterDp = subtotalBruto - dpVal;
+                const subtotalFinal = Math.max(0, subtotalAfterDp - kasbonUsed);
+                const maxCicilanInput = Math.max(0, subtotalAfterDp);
+                const dpRowHtml = dpVal > 0
+                    ? '<tr class="border-t border-blue-100 bg-blue-50" id="dp-row-' + vi + '">' +
+                      '<td colspan="5" class="py-2 px-3 text-right text-[10px] font-black text-blue-600 uppercase tracking-wider">DP</td>' +
+                      '<td class="py-2 px-3 text-right text-[10px] font-black text-blue-700">-' + fmt(dpVal) + '</td>' +
+                      '</tr>'
+                    : '';
+
+                let kasbonRowHtml = '';
+                if (kasbonVal > 0) {
+                    kasbonRowHtml =
+                      '<tr class="border-t border-red-100 bg-red-50/40" id="kasbon-row-' + vi + '">' +
+                      '<td colspan="3" class="py-3 px-3">' +
+                      '<span class="text-[11px] font-black text-red-500 uppercase tracking-wide">KASBON AWAL: ' + fmt(kasbonAwal) + ' | SISA: </span>' +
+                      '<span class="text-[11px] font-black text-red-500" id="kasbon-sisa-' + vi + '">' + fmt(kasbonVal) + '</span>' +
+                      '</td>' +
+                      '<td colspan="2" class="py-3 px-3 text-right">' +
+                      '<span onclick="autoSaveKasbon(' + vi + ')" ' +
+                      'class="cursor-pointer text-[11px] font-black text-red-500 uppercase tracking-wide hover:text-red-700 active:opacity-70 transition-all" style="white-space:nowrap">Cicilan</span>' +
+                      '</td>' +
+                      '<td class="py-3 px-3 text-right">' +
+                      '<input type="text" inputmode="numeric" ' +
+                      'id="kasbon-input-' + vi + '" data-vi="' + vi + '" data-vendor="' + vendor.replace(/'/g,"&#39;") + '" data-kasbon="' + kasbonVal + '" data-kasbon-max="' + maxCicilanInput + '" data-kasbon-id="' + kasbonId + '" data-raw="' + kasbonCicilan + '" ' +
+                      'value="' + (kasbonCicilan > 0 ? new Intl.NumberFormat('id-ID').format(kasbonCicilan) : '') + '" ' +
+                      'placeholder="0" ' +
+                      'oninput="formatKasbonInput(this,' + vi + ')" ' +
+                      'class="kasbon-cicilan-input w-28 text-right text-[10px] font-black text-red-700 border-2 border-red-200 rounded-lg py-1 px-2 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white">' +
+                      '</td></tr>';
+                }
+
+                const block = document.createElement('div');
+                block.className = isLunasBlock
+                    ? 'bg-white rounded-2xl shadow-sm border border-green-200 overflow-hidden'
+                    : 'bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden';
+
+                const hasDp = dpVal > 0;
+                const hasKasbon = kasbonVal > 0;
+                const redBadge = (hasDp || hasKasbon)
+                    ? `<span class="flex-shrink-0 text-[8px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">${hasDp && hasKasbon ? 'DP+KASBON' : hasDp ? 'DP' : 'KASBON'}</span>`
+                    : '';
+                const lunasBadge = isLunasBlock
+                    ? '<span class="flex-shrink-0 text-[8px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">✓ LUNAS</span>'
+                    : '';
+                const headerGradient = isLunasBlock
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50'
+                    : 'bg-gradient-to-r from-emerald-50 to-teal-50';
+                const circleGradient = isLunasBlock
+                    ? 'bg-gradient-to-br from-green-400 to-emerald-500'
+                    : 'bg-gradient-to-br from-emerald-400 to-teal-500';
+
+                block.innerHTML =
+                    '<button onclick="toggleVendorTable(' + vi + ')" class="w-full flex justify-between items-center px-4 py-3 ' + headerGradient + ' border-b border-gray-100 click-feedback">' +
+                    '<div class="flex items-center gap-2">' +
+                    '<div class="w-7 h-7 rounded-full ' + circleGradient + ' flex items-center justify-center text-white font-black text-[10px]">' + (vi+1) + '</div>' +
+                    '<span class="text-xs font-black text-gray-800 uppercase tracking-wide">' + vendor + '</span>' +
+                    redBadge + lunasBadge +
+                    '</div>' +
+                    '<div class="flex items-center gap-3">' +
+                    '<span class="text-xs font-black text-teal-700" id="header-total-' + vi + '">' + fmt(subtotalFinal) + '</span>' +
+                    '<svg id="arrow-' + vi + '" class="w-4 h-4 text-gray-400 transition-transform duration-200 rotate-[-90deg]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
+                    '</div></button>' +
+                    '<div id="' + tableId + '" class="hidden">' +
+                    '<table class="w-full text-left border-collapse">' +
+                    '<thead><tr class="bg-gray-50 text-[9px] uppercase font-black text-gray-400 tracking-wider">' +
+                    '<th class="py-2 px-2 text-center w-6">No</th>' +
+                    '<th class="py-2 px-2 text-center">Vendor</th>' +
+                    '<th class="py-2 px-2">Jenis / Aksi</th>' +
+                    '<th class="py-2 px-2 text-center w-12">QTY</th>' +
+                    '<th class="py-2 px-2 text-right">Harga</th>' +
+                    '<th class="py-2 px-2 pr-3 text-right">Jumlah</th>' +
+                    '</tr></thead>' +
+                    '<tbody class="divide-y divide-gray-50">' + rowsHtml + '</tbody>' +
+                    '<tfoot>' +
+                    dpRowHtml +
+                    kasbonRowHtml +
+                    '<tr class="border-t-2 border-teal-100 bg-teal-50">' +
+                    '<td colspan="5" class="py-2 px-2 pr-3 text-right text-[10px] font-black text-teal-700 uppercase tracking-wider">Subtotal ' + vendor + '</td>' +
+                    '<td class="py-2 px-2 pr-3 text-right text-[11px] font-black text-teal-800" id="subtotal-' + vi + '">' + fmt(subtotalFinal) + '</td>' +
+                    '</tr>' +
+                    '<tr class="border-t border-gray-100">' +
+                    '<td colspan="6" class="py-3 px-3">' +
+                    (!isLunasBlock ? '<button onclick="tandaiLunas(\'' + vendor.replace(/'/g,"\\'") + '\',' + vi + ')" ' +
+                    'class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-3 px-4 rounded-xl click-feedback flex justify-center items-center gap-2 text-xs uppercase tracking-widest transition-all shadow-sm">' +
+                    '✅ TANDAI LUNAS' +
+                    '</button>' : '<div class="w-full text-center text-green-600 font-black text-xs py-3 bg-green-50 rounded-xl">✓ SUDAH LUNAS</div>') +
+                    '</td></tr>' +
+                    '</tfoot></table></div>';
+                container.appendChild(block);
+            });
+            document.getElementById('riwayat-grand-total').textContent = fmt(grandTotal);
+            document.getElementById('riwayat-summary').classList.remove('hidden');
+        }
+
+        function toggleVendorTable(vi) {
+            const table = document.getElementById('vendor-table-' + vi);
+            const arrow = document.getElementById('arrow-' + vi);
+            const isCurrentlyHidden = table.classList.contains('hidden');
+
+            if (openVendorIndex !== null && openVendorIndex !== vi) {
+                const prevTable = document.getElementById('vendor-table-' + openVendorIndex);
+                const prevArrow = document.getElementById('arrow-' + openVendorIndex);
+                if (prevTable) prevTable.classList.add('hidden');
+                if (prevArrow) prevArrow.style.transform = 'rotate(-90deg)';
+            }
+
+            if (isCurrentlyHidden) {
+                table.classList.remove('hidden');
+                arrow.style.transform = 'rotate(0deg)';
+                openVendorIndex = vi;
+            } else {
+                table.classList.add('hidden');
+                arrow.style.transform = 'rotate(-90deg)';
+                openVendorIndex = null;
+            }
+        }
+
+        function formatRupiahInput(el) {
+            const raw = el.value.replace(/[^0-9]/g, '');
+            const num = parseInt(raw) || 0;
+            el.dataset.raw = num;
+            el.value = num > 0 ? new Intl.NumberFormat('id-ID').format(num) : '';
+            setTimeout(() => { el.selectionStart = el.selectionEnd = el.value.length; }, 0);
+        }
+
+        function toggleDp() {
+            const checkbox = document.getElementById('check-dp');
+            const inputDp = document.getElementById('input-dp');
+            if (checkbox.checked) {
+                inputDp.disabled = false;
+                inputDp.classList.remove('bg-black/10', 'text-white/40');
+                inputDp.classList.add('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-blue-300');
+                inputDp.focus();
+            } else {
+                inputDp.disabled = true;
+                inputDp.value = '';
+                inputDp.dataset.raw = '0';
+                inputDp.classList.add('bg-black/10', 'text-white/40');
+                inputDp.classList.remove('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-blue-300');
+            }
+        }
+
+        function toggleKasbon() {
+            const checkbox = document.getElementById('check-kasbon');
+            const inputKasbon = document.getElementById('input-kasbon');
+            if (checkbox.checked) {
+                inputKasbon.disabled = false;
+                inputKasbon.classList.remove('bg-black/10', 'text-white/40');
+                inputKasbon.classList.add('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-orange-300');
+                inputKasbon.focus();
+            } else {
+                inputKasbon.disabled = true;
+                inputKasbon.value = '';
+                inputKasbon.dataset.raw = '0';
+                inputKasbon.classList.add('bg-black/10', 'text-white/40');
+                inputKasbon.classList.remove('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-orange-300');
+            }
+        }
+    </script>
+</body>
+</html>

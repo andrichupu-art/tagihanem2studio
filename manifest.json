@@ -1,0 +1,15 @@
+{
+  "name": "EM2STUDIO Invoice Generator",
+  "short_name": "EM2Invoice",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#FF7315",
+  "theme-color": "#FF7315",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
