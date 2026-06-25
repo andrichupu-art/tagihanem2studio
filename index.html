@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EM2STUDIO - Pembuat Invoice JPEG</title>
-    <link rel="manifest" href="/tagihanem2studio/manifest.json">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FF7315">
     <link rel="apple-touch-icon" href="icon-192.png">
     
@@ -230,7 +230,7 @@
     <header id="main-header" class="w-full flex-none" style="background-color:#FF7315;">
         <div class="max-w-lg mx-auto flex justify-start items-center py-4 px-6">
             <div class="h-12 max-w-[160px]">
-                <img src="EM2Rubber.svg" alt="EM2 Rubber Logo" class="w-full h-full object-contain">
+                <div id="logo-fallback" style="font-weight:900;font-size:1.5rem;color:white;letter-spacing:-0.05em;">EM2<span style="opacity:0.7;">STUDIO</span></div>
             </div>
         </div>
     </header>
@@ -242,28 +242,28 @@
             <div onclick="switchTab('input')" class="menu-card click-feedback" style="background-color:#b1bcc7;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-end;padding:20px;">
                 <div class="card-decor" style="position:absolute;right:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(10deg);"></div>
                 <div class="card-decor" style="position:absolute;right:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(-6deg);"></div>
-               <img src="char1.png" style="position:absolute;right:0%;bottom:-15%;height:130%;width:auto;max-width:none;z-index:1;" alt="">
+               <span style="position:absolute;right:5%;bottom:5%;font-size:4rem;z-index:1;opacity:0.3;">📝</span>
                 <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Input Data</span>
             </div>
 
             <div onclick="switchTab('riwayat')" class="menu-card click-feedback" style="background-color:#FF7315;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-start;justify-content:flex-end;padding:20px;">
                 <div class="card-decor" style="position:absolute;left:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(-10deg);"></div>
                 <div class="card-decor" style="position:absolute;left:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(6deg);"></div>
-                <img src="char2.png" style="position:absolute;left:0%;bottom:-5%;height:120%;width:auto;max-width:none;z-index:1;" alt="">
+                <span style="position:absolute;left:5%;bottom:5%;font-size:4rem;z-index:1;opacity:0.3;">📋</span>
                 <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Riwayat Data</span>
             </div>
 
             <div onclick="switchTab('cetak')" class="menu-card click-feedback" style="background-color:#6cddc7;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-start;padding:20px;">
                 <div class="card-decor" style="position:absolute;right:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(10deg);"></div>
                 <div class="card-decor" style="position:absolute;right:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(-6deg);"></div>
-                <img src="char3.png" style="position:absolute;right:0%;bottom:-10%;height:120%;width:auto;max-width:none;z-index:1;" alt="">
+                <span style="position:absolute;right:5%;bottom:5%;font-size:4rem;z-index:1;opacity:0.3;">🖨️</span>
                 <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Cetak Data</span>
             </div>
 
             <div onclick="switchTab('setting')" class="menu-card click-feedback" style="background-color:#6ee5ff;position:relative;flex:1; min-height:100px;border-radius:20px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.15);cursor:pointer;display:flex;align-items:flex-start;justify-content:flex-end;padding:20px;">
                 <div class="card-decor" style="position:absolute;left:16px;bottom:-10px;width:100px;height:120px;background:rgba(255,255,255,0.18);border-radius:16px;transform:rotate(-10deg);"></div>
                 <div class="card-decor" style="position:absolute;left:50px;bottom:-20px;width:70px;height:100px;background:rgba(255,255,255,0.10);border-radius:12px;transform:rotate(6deg);"></div>
-                <img src="char4.png" style="position:absolute;left:0%;bottom:-15%;height:130%;width:auto;max-width:none;z-index:1;" alt="">
+                <span style="position:absolute;left:5%;bottom:5%;font-size:4rem;z-index:1;opacity:0.3;">⚙️</span>
                 <span style="font-weight:800;color:#222;font-size:16px;z-index:2;position:relative;">Setting</span>
             </div>
 
@@ -468,7 +468,7 @@
                         <div style="background:linear-gradient(135deg,#06b6d4 0%,#2563eb 60%,#7c3aed 100%);padding:16px 20px;position:relative;overflow:hidden;">
                             <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(255,255,255,0.07);border-radius:50%;"></div>
                             <div style="display:flex;justify-content:space-between;align-items:center;position:relative;">
-                                <img src="EM2Rubber.svg" alt="EM2STUDIO" style="height:52px;filter:brightness(0) invert(1);opacity:0.95;" onerror="this.style.display='none'">
+                                <div style="font-weight:900;font-size:1.2rem;color:white;letter-spacing:-0.03em;">EM2<span style="opacity:0.7;">STUDIO</span></div>
                                 <div style="text-align:right;">
                                     <div style="color:rgba(255,255,255,0.6);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">No. Invoice</div>
                                     <div id="inv-date" style="color:white;font-size:11px;font-weight:900;margin-top:1px;">INV-2026-000000</div>
@@ -713,11 +713,13 @@
 
         window.addEventListener('DOMContentLoaded', async () => {
             setupSupabaseClient();
-            await loadVendorsFromSupabase();
-            await loadPricesFromSupabase();
-            await loadTransaksiFromSupabase();
-            await loadDpFromSupabase();
-            await loadKasbonFromSupabase();
+            await Promise.all([
+                loadVendorsFromSupabase(),
+                loadPricesFromSupabase(),
+                loadTransaksiFromSupabase(),
+                loadDpFromSupabase(),
+                loadKasbonFromSupabase()
+            ]);
             renderVendorOptions();
             renderSettingVendorList();
             renderJenisGambarOptions();
@@ -852,8 +854,9 @@
             const jenis = document.getElementById('jenis-gambar').value;
             const hargaSatuan = appData.prices[jenis] || 0;
             const qty = parseInt(document.getElementById('qty').value) || 1;
-            const totalEl = document.getElementById('total');
-            if (totalEl) totalEl.value = hargaSatuan * qty;
+            // FIX: Element 'total' tidak ada di HTML, dihapus
+            // const totalEl = document.getElementById('total');
+            // if (totalEl) totalEl.value = hargaSatuan * qty;
             const dispEl = document.getElementById('harga-satuan-display');
             if (dispEl) {
                 dispEl.value = jenis && hargaSatuan > 0
@@ -1296,11 +1299,20 @@
         // Cek sisa kasbon saat pilih vendor
         function cekSisaKasbonVendor(vendorName) {
             const fmt = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
-            // Hitung total jumlah kasbon - cicilan yang sudah dibayar untuk vendor ini
-            const vendorKasbon = kasbonData.filter(k => k.vendor === vendorName && !k.lunas);
-            const totalJumlah = vendorKasbon.reduce((s,k) => s + (k.jumlah||0), 0);
-            const totalCicilan = vendorKasbon.reduce((s,k) => s + (k.cicilan||0), 0);
-            const sisa = totalJumlah - totalCicilan;
+            // FIX: Ambil kasbon TERAKHIR (terbaru) yang belum lunas, bukan semua
+            const vendorKasbon = kasbonData
+                .filter(k => k.vendor === vendorName && !k.lunas)
+                .sort((a, b) => b.id - a.id); // Sort DESC by id (terbaru dulu)
+
+            if (vendorKasbon.length === 0) {
+                document.getElementById('info-kasbon-vendor').classList.add('hidden');
+                return;
+            }
+
+            // Hanya gunakan kasbon TERBARU
+            const latestKasbon = vendorKasbon[0];
+            const sisa = Math.max(0, (latestKasbon.jumlah || 0) - (latestKasbon.cicilan || 0));
+
             const infoEl = document.getElementById('info-kasbon-vendor');
             const nominalEl = document.getElementById('info-kasbon-nominal');
             if (sisa > 0 && infoEl && nominalEl) {
@@ -1324,10 +1336,13 @@
             const vendorDp = dpData.filter(d => d.vendor === vendorName && !d.sesi_id);
             const totalDp = vendorDp.reduce((s,d) => s + (d.jumlah||0), 0);
 
-            // Ambil kasbon aktif dari tabel kasbon untuk vendor ini
-            const vendorKasbon = kasbonData.filter(k => k.vendor === vendorName && !k.lunas);
-            const totalKasbonJumlah = vendorKasbon.reduce((s,k) => s + (k.jumlah||0), 0);
-            const totalKasbonCicilan = vendorKasbon.reduce((s,k) => s + (k.cicilan||0), 0);
+            // FIX: Ambil kasbon TERAKHIR yang belum lunas
+            const vendorKasbon = kasbonData
+                .filter(k => k.vendor === vendorName && !k.lunas)
+                .sort((a, b) => b.id - a.id);
+            const latestKasbon = vendorKasbon[0];
+            const totalKasbonJumlah = latestKasbon ? (latestKasbon.jumlah || 0) : 0;
+            const totalKasbonCicilan = latestKasbon ? (latestKasbon.cicilan || 0) : 0;
             const sisaKasbon = Math.max(0, totalKasbonJumlah - totalKasbonCicilan);
 
             const totalBayar = totalBruto - totalDp;
@@ -1355,27 +1370,29 @@
                     });
                 }
 
-                // Tandai kasbon aktif vendor ini sebagai lunas, dan carry over sisa ke sesi baru
+                // FIX: Tandai kasbon lunas, lalu update jumlah = sisa (carry over)
+                // Jangan buat entry baru, tapi update jumlah kasbon yang ada
                 if (vendorKasbon.length > 0) {
-                    await supabaseClient.from('kasbon')
-                        .update({ lunas: true, sesi_id: sesiId })
-                        .in('id', vendorKasbon.map(k => k.id));
-                    vendorKasbon.forEach(k => {
-                        const idx = kasbonData.findIndex(x => x.id === k.id);
-                        if (idx !== -1) { kasbonData[idx].lunas = true; kasbonData[idx].sesi_id = sesiId; }
-                    });
-                    // Carry over sisa kasbon ke sesi baru (jika masih ada hutang)
+                    const latestKasbon = vendorKasbon.sort((a, b) => b.id - a.id)[0];
                     if (sisaKasbon > 0) {
-                        const today2 = new Date().toISOString().split('T')[0];
-                        try {
-                            const { data: kbCarry, error: kbCarryErr } = await supabaseClient
-                                .from('kasbon')
-                                .insert([{ tanggal: today2, vendor: vendorName, jumlah: sisaKasbon, cicilan: 0, lunas: false }])
-                                .select().single();
-                            if (!kbCarryErr && kbCarry) {
-                                kasbonData.push({ id: kbCarry.id, tanggal: today2, vendor: vendorName, jumlah: sisaKasbon, cicilan: 0, lunas: false });
-                            }
-                        } catch(e2) { console.warn('carry over kasbon gagal:', e2); }
+                        // Ada sisa: update jumlah = sisa, reset cicilan = 0, tetap lunas=false
+                        await supabaseClient.from('kasbon')
+                            .update({ jumlah: sisaKasbon, cicilan: 0, lunas: false, sesi_id: null })
+                            .eq('id', latestKasbon.id);
+                        const idx = kasbonData.findIndex(k => k.id === latestKasbon.id);
+                        if (idx !== -1) {
+                            kasbonData[idx].jumlah = sisaKasbon;
+                            kasbonData[idx].cicilan = 0;
+                            kasbonData[idx].lunas = false;
+                            kasbonData[idx].sesi_id = null;
+                        }
+                    } else {
+                        // Tidak ada sisa: tandai lunas
+                        await supabaseClient.from('kasbon')
+                            .update({ lunas: true, sesi_id: sesiId })
+                            .eq('id', latestKasbon.id);
+                        const idx = kasbonData.findIndex(k => k.id === latestKasbon.id);
+                        if (idx !== -1) { kasbonData[idx].lunas = true; kasbonData[idx].sesi_id = sesiId; }
                     }
                 }
 
@@ -1518,8 +1535,11 @@
                     ? dpData.filter(d => d.sesi_id === sesiIdVal && d.vendor === sesi.vendor)
                     : dpData.filter(d => d.vendor === sesi.vendor && !d.sesi_id && d.tanggal >= firstDate && d.tanggal <= lastDate);
                 const hasDp = dpSesi.some(d => d.jumlah > 0);
-                const vendorKbSesi = kasbonData.filter(k => k.vendor === sesi.vendor && !k.lunas);
-                const hasKb = vendorKbSesi.some(k => k.jumlah > 0);
+                // FIX: Cek kasbon terbaru
+                const vendorKbSesi = kasbonData
+                    .filter(k => k.vendor === sesi.vendor && !k.lunas)
+                    .sort((a, b) => b.id - a.id);
+                const hasKb = vendorKbSesi.length > 0 && (vendorKbSesi[0].jumlah > 0);
                 const isSelected = idx === selectedSesiIndex;
                 const lunasBadge = sesi.isLunas
                     ? `<span class="text-[8px] font-black bg-green-500 text-white px-1.5 py-0.5 rounded-full ml-1">✓ LUNAS</span>`
@@ -1607,26 +1627,28 @@
             }
             const dpVal = dpSesiRows.reduce((s,d) => s + (d.jumlah||0), 0);
 
-            // Kasbon sesi ini: by sesi_id dulu, fallback by vendor+tanggal overlap
-            let vendorKasbonSesi = sesiIdVal
-                ? kasbonData.filter(k => k.vendor === vendor && k.sesi_id === sesiIdVal)
-                : [];
+            // FIX: Kasbon sesi ini - ambil yang terbaru
+            let vendorKasbonSesi = [];
+            if (sesiIdVal) {
+                vendorKasbonSesi = kasbonData
+                    .filter(k => k.vendor === vendor && k.sesi_id === sesiIdVal)
+                    .sort((a, b) => b.id - a.id);
+            }
             if (vendorKasbonSesi.length === 0) {
                 const firstDate = rows[0].tanggal;
                 const lastDate  = rows[rows.length - 1].tanggal;
-                // Sesi lunas: cari kasbon lunas by tanggal overlap
                 vendorKasbonSesi = kasbonData.filter(k =>
                     k.vendor === vendor && k.lunas && k.tanggal >= firstDate && k.tanggal <= lastDate
-                );
-                // Sesi aktif atau masih kosong: cari kasbon aktif (!lunas)
+                ).sort((a, b) => b.id - a.id);
                 if (vendorKasbonSesi.length === 0) {
-                    vendorKasbonSesi = kasbonData.filter(k =>
-                        k.vendor === vendor && !k.lunas
-                    );
+                    vendorKasbonSesi = kasbonData
+                        .filter(k => k.vendor === vendor && !k.lunas)
+                        .sort((a, b) => b.id - a.id);
                 }
             }
-            const totalKasbonAwal = vendorKasbonSesi.reduce((s,k) => s + (k.jumlah||0), 0);
-            const totalKasbonBayar = vendorKasbonSesi.reduce((s,k) => s + (k.cicilan||0), 0);
+            const latestKasbonSesi = vendorKasbonSesi[0];
+            const totalKasbonAwal = latestKasbonSesi ? (latestKasbonSesi.jumlah || 0) : 0;
+            const totalKasbonBayar = latestKasbonSesi ? (latestKasbonSesi.cicilan || 0) : 0;
             const sisaKasbonCarryOver = totalKasbonAwal - totalKasbonBayar;
             const sisaKasbonBersih = sisaKasbonCarryOver > 0 ? sisaKasbonCarryOver : 0;
 
@@ -2315,16 +2337,20 @@
                     const dpAktif = dpData.filter(d => d.vendor === vendor && !d.sesi_id && d.tanggal >= firstDate && d.tanggal <= lastDate);
                     dpVal = dpAktif.reduce((s,d) => s + (d.jumlah||0), 0);
 
-                    const kasbonAktif = kasbonData.filter(k => k.vendor === vendor && !k.lunas);
-                    const totalJumlah = kasbonAktif.reduce((s,k) => s + (k.jumlah||0), 0);
-                    const totalCicilan = kasbonAktif.reduce((s,k) => s + (k.cicilan||0), 0);
+                    // FIX: Ambil kasbon TERAKHIR yang belum lunas
+                    const kasbonAktif = kasbonData
+                        .filter(k => k.vendor === vendor && !k.lunas)
+                        .sort((a, b) => b.id - a.id);
+                    const latestKasbon = kasbonAktif[0];
+                    const totalJumlah = latestKasbon ? (latestKasbon.jumlah || 0) : 0;
+                    const totalCicilan = latestKasbon ? (latestKasbon.cicilan || 0) : 0;
                     const sisaKasbon = Math.max(0, totalJumlah - totalCicilan);
                     kasbonAwal = totalJumlah;
                     kasbonCicilan = totalCicilan;
-                    if (sisaKasbon > 0 && kasbonAktif.length > 0) {
+                    if (sisaKasbon > 0 && latestKasbon) {
                         kasbonVal = sisaKasbon;
                         kasbonUsed = totalCicilan;
-                        kasbonId = kasbonAktif[0].id;
+                        kasbonId = latestKasbon.id;
                     }
                 }
 
@@ -2525,7 +2551,7 @@
         // ===== SERVICE WORKER REGISTRATION =====
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/tagihanem2studio/sw.js', { scope: '/tagihanem2studio/' })
+                navigator.serviceWorker.register('sw.js', { scope: './' })
                     .then(reg => console.log('SW registered, scope:', reg.scope))
                     .catch(err => console.warn('SW registration failed:', err));
             });
