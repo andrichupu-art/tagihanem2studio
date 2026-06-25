@@ -368,7 +368,7 @@
                                             <span class="text-[10px] font-black text-black uppercase tracking-wide">Kasbon</span>
                                         </label>
                                         <label class="block text-[9px] font-bold text-black/60 uppercase">Jumlah Kasbon (Rp)</label>
-                                        <input type="text" inputmode="numeric" id="input-kasbon" data-raw="0" disabled placeholder="0" oninput="formatRupiahInput(this)" class="w-full px-2 py-2 rounded-lg border-none bg-black/10 text-white/40 font-bold text-xs focus:outline-none transition-all disabled:opacity-60">
+                                        <input type="text" inputmode="numeric" id="input-kasbon" data-raw="0" disabled placeholder="0" oninput="formatRupiahInput(this);validateKasbonInput(this)" class="w-full px-2 py-2 rounded-lg border-none bg-black/10 text-white/40 font-bold text-xs focus:outline-none transition-all disabled:opacity-60">
                                     </div>
                                 </div>
                             </div>
@@ -1202,6 +1202,21 @@
                 showNotif('warning', 'Kasbon Kosong', 'Centang kasbon tapi nominal belum diisi!');
                 return;
             }
+            // FIX: Validasi kasbon tidak boleh melebihi sisa kasbon vendor
+            if (kasbonActive) {
+                const vendorKasbon = kasbonData
+                    .filter(k => k.vendor === vendorName && !k.lunas)
+                    .sort((a, b) => b.id - a.id);
+                if (vendorKasbon.length > 0) {
+                    const latestKasbon = vendorKasbon[0];
+                    const sisa = Math.max(0, (latestKasbon.jumlah || 0) - (latestKasbon.cicilan || 0));
+                    if (kasbonVal > sisa) {
+                        showNotif('warning', 'Kasbon Melebihi Sisa', 
+                            'Maksimal kasbon: ' + new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(sisa));
+                        return;
+                    }
+                }
+            }
 
             const btn = document.getElementById('btn-submit-cart');
             btn.disabled = true;
@@ -1246,10 +1261,10 @@
                     try {
                         const { data: kbRes, error: kbErr } = await supabaseClient
                             .from('kasbon')
-                            .insert([{ tanggal: today, vendor: vendorName, jumlah: kasbonVal, cicilan: 0, lunas: false }])
+                            .insert([{ tanggal: today, vendor: vendorName, jumlah: kasbonVal, cicilan: 0, lunas: false, sesi_id: null }])
                             .select().single();
                         if (kbErr) throw kbErr;
-                        if (kbRes) kasbonData.push({ id: kbRes.id, tanggal: today, vendor: vendorName, jumlah: kasbonVal, cicilan: 0, lunas: false });
+                        if (kbRes) kasbonData.push({ id: kbRes.id, tanggal: today, vendor: vendorName, jumlah: kasbonVal, cicilan: 0, lunas: false, sesi_id: null });
                     } catch(e) { showNotif('error','Gagal Simpan Kasbon', e.message); }
                 }
 
@@ -1296,20 +1311,31 @@
             document.getElementById('info-kasbon-vendor').classList.add('hidden');
         }
 
+        // Helper: hitung sisa kasbon vendor
+        function getSisaKasbonVendor(vendorName) {
+            const vendorKasbon = kasbonData
+                .filter(k => k.vendor === vendorName && !k.lunas)
+                .sort((a, b) => b.id - a.id);
+            if (vendorKasbon.length === 0) return 0;
+            const latestKasbon = vendorKasbon[0];
+            return Math.max(0, (latestKasbon.jumlah || 0) - (latestKasbon.cicilan || 0));
+        }
+
         // Cek sisa kasbon saat pilih vendor
         function cekSisaKasbonVendor(vendorName) {
             const fmt = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
-            // FIX: Ambil kasbon TERAKHIR (terbaru) yang belum lunas, bukan semua
             const vendorKasbon = kasbonData
                 .filter(k => k.vendor === vendorName && !k.lunas)
-                .sort((a, b) => b.id - a.id); // Sort DESC by id (terbaru dulu)
+                .sort((a, b) => b.id - a.id);
 
             if (vendorKasbon.length === 0) {
                 document.getElementById('info-kasbon-vendor').classList.add('hidden');
+                // Reset kasbon max validation
+                const kbInput = document.getElementById('input-kasbon');
+                if (kbInput) { kbInput.removeAttribute('data-kasbon-sisa'); }
                 return;
             }
 
-            // Hanya gunakan kasbon TERBARU
             const latestKasbon = vendorKasbon[0];
             const sisa = Math.max(0, (latestKasbon.jumlah || 0) - (latestKasbon.cicilan || 0));
 
@@ -1318,8 +1344,13 @@
             if (sisa > 0 && infoEl && nominalEl) {
                 nominalEl.textContent = fmt(sisa);
                 infoEl.classList.remove('hidden');
+                // Store sisa for input validation
+                const kbInput = document.getElementById('input-kasbon');
+                if (kbInput) { kbInput.dataset.kasbonSisa = sisa; }
             } else if (infoEl) {
                 infoEl.classList.add('hidden');
+                const kbInput = document.getElementById('input-kasbon');
+                if (kbInput) { kbInput.removeAttribute('data-kasbon-sisa'); }
             }
         }
 
@@ -1370,24 +1401,49 @@
                     });
                 }
 
-                // FIX: Tandai kasbon lunas, lalu update jumlah = sisa (carry over)
-                // Jangan buat entry baru, tapi update jumlah kasbon yang ada
+                // FIX: Kasbon carry-over - buat record BARU untuk sisa, jangan update yang lama
                 if (vendorKasbon.length > 0) {
                     const latestKasbon = vendorKasbon.sort((a, b) => b.id - a.id)[0];
                     if (sisaKasbon > 0) {
-                        // Ada sisa: update jumlah = sisa, reset cicilan = 0, tetap lunas=false
+                        // Ada sisa: tandai yang lama LUNAS (dibayar penuh), buat record BARU untuk sisa
+                        // Mark old kasbon as fully paid (lunas=true, sesi_id=sesiId)
                         await supabaseClient.from('kasbon')
-                            .update({ jumlah: sisaKasbon, cicilan: 0, lunas: false, sesi_id: null })
+                            .update({ lunas: true, sesi_id: sesiId, cicilan: latestKasbon.jumlah })
                             .eq('id', latestKasbon.id);
-                        const idx = kasbonData.findIndex(k => k.id === latestKasbon.id);
-                        if (idx !== -1) {
-                            kasbonData[idx].jumlah = sisaKasbon;
-                            kasbonData[idx].cicilan = 0;
-                            kasbonData[idx].lunas = false;
-                            kasbonData[idx].sesi_id = null;
+                        const idxOld = kasbonData.findIndex(k => k.id === latestKasbon.id);
+                        if (idxOld !== -1) {
+                            kasbonData[idxOld].lunas = true;
+                            kasbonData[idxOld].sesi_id = sesiId;
+                            kasbonData[idxOld].cicilan = latestKasbon.jumlah;
+                        }
+                        // Buat record BARU untuk sisa kasbon
+                        const { data: newKb, error: newKbErr } = await supabaseClient
+                            .from('kasbon')
+                            .insert([{ 
+                                tanggal: new Date().toISOString().split('T')[0], 
+                                vendor: vendorName, 
+                                jumlah: sisaKasbon, 
+                                cicilan: 0, 
+                                lunas: false,
+                                sesi_id: null,
+                                parent_id: latestKasbon.id  // track origin
+                            }])
+                            .select().single();
+                        if (newKbErr) throw newKbErr;
+                        if (newKb) {
+                            kasbonData.push({
+                                id: newKb.id,
+                                tanggal: newKb.tanggal,
+                                vendor: newKb.vendor,
+                                jumlah: newKb.jumlah,
+                                cicilan: 0,
+                                lunas: false,
+                                sesi_id: null,
+                                parent_id: latestKasbon.id
+                            });
                         }
                     } else {
-                        // Tidak ada sisa: tandai lunas
+                        // Tidak ada sisa: tandai lunas penuh
                         await supabaseClient.from('kasbon')
                             .update({ lunas: true, sesi_id: sesiId })
                             .eq('id', latestKasbon.id);
@@ -1627,24 +1683,29 @@
             }
             const dpVal = dpSesiRows.reduce((s,d) => s + (d.jumlah||0), 0);
 
-            // FIX: Kasbon sesi ini - ambil yang terbaru
+            // FIX: Kasbon lookup - konsisten by sesi_id, lalu fallback by vendor+date
             let vendorKasbonSesi = [];
             if (sesiIdVal) {
+                // Prioritas 1: kasbon yang ter-link ke sesi ini
                 vendorKasbonSesi = kasbonData
                     .filter(k => k.vendor === vendor && k.sesi_id === sesiIdVal)
                     .sort((a, b) => b.id - a.id);
             }
             if (vendorKasbonSesi.length === 0) {
+                // Prioritas 2: kasbon lunas yang tanggalnya overlap dengan periode tagihan
                 const firstDate = rows[0].tanggal;
                 const lastDate  = rows[rows.length - 1].tanggal;
                 vendorKasbonSesi = kasbonData.filter(k =>
                     k.vendor === vendor && k.lunas && k.tanggal >= firstDate && k.tanggal <= lastDate
                 ).sort((a, b) => b.id - a.id);
-                if (vendorKasbonSesi.length === 0) {
-                    vendorKasbonSesi = kasbonData
-                        .filter(k => k.vendor === vendor && !k.lunas)
-                        .sort((a, b) => b.id - a.id);
-                }
+            }
+            if (vendorKasbonSesi.length === 0) {
+                // Prioritas 3: kasbon yang dibayar (cicilan > 0) dalam periode
+                const firstDate = rows[0].tanggal;
+                const lastDate  = rows[rows.length - 1].tanggal;
+                vendorKasbonSesi = kasbonData.filter(k =>
+                    k.vendor === vendor && k.cicilan > 0 && k.tanggal >= firstDate && k.tanggal <= lastDate
+                ).sort((a, b) => b.id - a.id);
             }
             const latestKasbonSesi = vendorKasbonSesi[0];
             const totalKasbonAwal = latestKasbonSesi ? (latestKasbonSesi.jumlah || 0) : 0;
@@ -1832,7 +1893,8 @@
                         jumlah: r.jumlah || 0,
                         cicilan: r.cicilan || 0,
                         lunas: r.lunas || false,
-                        sesi_id: r.sesi_id || null
+                        sesi_id: r.sesi_id || null,
+                        parent_id: r.parent_id || null  // FIX: include parent_id for tracking
                     }));
                 }
             } catch (err) { console.log('loadKasbon error:', err); }
@@ -2366,18 +2428,24 @@
                     : '';
 
                 let kasbonRowHtml = '';
-                if (kasbonVal > 0) {
+                // FIX: Hanya tampilkan row kasbon jika ada nilai yang relevan
+                if (kasbonVal > 0 || kasbonAwal > 0) {
                     if (isLunasBlock) {
+                        // Untuk block LUNAS: hanya tampilkan jika ada cicilan yang dibayar
                         const sudahLunasPenuh = kasbonCicilan >= kasbonAwal;
-                        kasbonRowHtml =
-                          '<tr class="border-t border-red-100 bg-red-50/40" id="kasbon-row-' + vi + '">' +
-                          '<td colspan="5" class="py-2 px-3 text-right text-[10px] font-black text-red-500 uppercase tracking-wide">' +
-                          'KASBON: ' + fmt(kasbonAwal) +
-                          (kasbonCicilan > 0 ? ' | DIBAYAR: ' + fmt(kasbonCicilan) : '') +
-                          (sudahLunasPenuh ? ' ✓ LUNAS' : ' | SISA: ' + fmt(kasbonAwal - kasbonCicilan)) +
-                          '</td>' +
-                          '<td class="py-2 px-3 text-right text-[10px] font-black text-red-600">-' + fmt(kasbonCicilan) + '</td>' +
-                          '</tr>';
+                        const sisaKasbon = Math.max(0, kasbonAwal - kasbonCicilan);
+                        // Tampilkan hanya jika ada cicilan dibayar ATAU ada sisa yang perlu diperhatikan
+                        if (kasbonCicilan > 0 || sisaKasbon > 0) {
+                            kasbonRowHtml =
+                              '<tr class="border-t border-red-100 bg-red-50/40" id="kasbon-row-' + vi + '">' +
+                              '<td colspan="5" class="py-2 px-3 text-right text-[10px] font-black text-red-500 uppercase tracking-wide">' +
+                              'KASBON: ' + fmt(kasbonAwal) +
+                              (kasbonCicilan > 0 ? ' | DIBAYAR: ' + fmt(kasbonCicilan) : '') +
+                              (sudahLunasPenuh ? ' ✓ LUNAS' : (sisaKasbon > 0 ? ' | SISA: ' + fmt(sisaKasbon) : '')) +
+                              '</td>' +
+                              '<td class="py-2 px-3 text-right text-[10px] font-black text-red-600">-' + fmt(kasbonCicilan) + '</td>' +
+                              '</tr>';
+                        }
                     } else {
                         kasbonRowHtml =
                           '<tr class="border-t border-red-100 bg-red-50/40" id="kasbon-row-' + vi + '">' +
@@ -2506,9 +2574,32 @@
             }
         }
 
+        
+        function validateKasbonInput(el) {
+            const vendorName = document.getElementById('vendor').value;
+            if (!vendorName || !el.dataset.kasbonSisa) return;
+            const sisa = parseInt(el.dataset.kasbonSisa) || 0;
+            const raw = el.value.replace(/[^0-9]/g, '');
+            let num = parseInt(raw) || 0;
+            if (num > sisa) {
+                num = sisa;
+                el.dataset.raw = num;
+                el.value = num > 0 ? new Intl.NumberFormat('id-ID').format(num) : '';
+                showNotif('warning', 'Kasbon Melebihi Sisa', 'Maksimal: ' + new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(sisa), 2000);
+            }
+        }
+
         function formatRupiahInput(el) {
             const raw = el.value.replace(/[^0-9]/g, '');
-            const num = parseInt(raw) || 0;
+            let num = parseInt(raw) || 0;
+            // Validasi kasbon: tidak boleh melebihi sisa kasbon vendor
+            if (el.id === 'input-kasbon' && el.dataset.kasbonSisa) {
+                const maxKasbon = parseInt(el.dataset.kasbonSisa) || 0;
+                if (num > maxKasbon) {
+                    num = maxKasbon;
+                    showNotif('warning', 'Kasbon Melebihi Sisa', 'Maksimal kasbon: ' + new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(maxKasbon), 2500);
+                }
+            }
             el.dataset.raw = num;
             el.value = num > 0 ? new Intl.NumberFormat('id-ID').format(num) : '';
             setTimeout(() => { el.selectionStart = el.selectionEnd = el.value.length; }, 0);
@@ -2520,14 +2611,14 @@
             if (checkbox.checked) {
                 inputDp.disabled = false;
                 inputDp.classList.remove('bg-black/10', 'text-white/40');
-                inputDp.classList.add('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-blue-300');
+                inputDp.classList.add('bg-white', 'text-gray-800');
                 inputDp.focus();
             } else {
                 inputDp.disabled = true;
                 inputDp.value = '';
                 inputDp.dataset.raw = '0';
                 inputDp.classList.add('bg-black/10', 'text-white/40');
-                inputDp.classList.remove('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-blue-300');
+                inputDp.classList.remove('bg-white', 'text-gray-800');
             }
         }
 
@@ -2537,14 +2628,20 @@
             if (checkbox.checked) {
                 inputKasbon.disabled = false;
                 inputKasbon.classList.remove('bg-black/10', 'text-white/40');
-                inputKasbon.classList.add('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-orange-300');
+                inputKasbon.classList.add('bg-white', 'text-gray-800');
+                // Set max attribute based on sisa kasbon
+                const vendorName = document.getElementById('vendor').value;
+                if (vendorName && inputKasbon.dataset.kasbonSisa) {
+                    inputKasbon.setAttribute('max', inputKasbon.dataset.kasbonSisa);
+                }
                 inputKasbon.focus();
             } else {
                 inputKasbon.disabled = true;
                 inputKasbon.value = '';
                 inputKasbon.dataset.raw = '0';
+                inputKasbon.removeAttribute('max');
                 inputKasbon.classList.add('bg-black/10', 'text-white/40');
-                inputKasbon.classList.remove('bg-white', 'text-gray-800', 'focus:ring-2', 'focus:ring-orange-300');
+                inputKasbon.classList.remove('bg-white', 'text-gray-800');
             }
         }
 
