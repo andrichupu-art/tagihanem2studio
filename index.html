@@ -1357,7 +1357,12 @@
         // ===== TANDAI LUNAS =====
         async function tandaiLunas(vendorName, vi) {
             const fmt = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
-            const vendorTrx = riwayatData.filter(t => t.vendor===vendorName && !t.lunas);
+            // Bug 2 fix: hanya ambil transaksi dari blok aktif ini (by row id di DOM)
+            const table = document.getElementById('vendor-table-' + vi);
+            const activeIds = table ? [...table.querySelectorAll('tbody tr[data-id]')].map(r => parseInt(r.dataset.id)) : [];
+            const vendorTrx = activeIds.length > 0
+                ? riwayatData.filter(t => activeIds.includes(t.id) && !t.lunas)
+                : riwayatData.filter(t => t.vendor===vendorName && !t.lunas);
             if (vendorTrx.length === 0) return;
 
             // Hitung total bruto dari transaksi
@@ -1548,7 +1553,12 @@
             if (!start || !end) { wrap.innerHTML = ''; return; }
 
             const filtered = riwayatData
-                .filter(t => t.tanggal >= start && t.tanggal <= end)
+                .filter(t => {
+                    // Tampilkan jika tanggal input dalam periode, ATAU tgl_lunas dalam periode
+                    const inByInput = t.tanggal >= start && t.tanggal <= end;
+                    const inByLunas = t.lunas && t.tgl_lunas && t.tgl_lunas >= start && t.tgl_lunas <= end;
+                    return inByInput || inByLunas;
+                })
                 .sort((a,b) => a.id - b.id);
 
             if (filtered.length === 0) {
@@ -1714,7 +1724,9 @@
             const sisaKasbonBersih = sisaKasbonCarryOver > 0 ? sisaKasbonCarryOver : 0;
 
             // Build invoice header
-            document.getElementById('inv-date').textContent = 'INV-2026-' + Math.floor(100000 + Math.random() * 900000);
+            // Nomor invoice konsisten per sesi
+            const invNum = sesiIdVal ? String(sesiIdVal).slice(-6).toUpperCase() : String(rows[0].id).slice(-6);
+            document.getElementById('inv-date').textContent = 'INV-2026-' + invNum;
             document.getElementById('inv-current-time').textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
             const startLabel = new Date(start + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
             const endLabel   = new Date(end   + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -1972,16 +1984,11 @@
             if (subtotalCell) subtotalCell.textContent = fmt(subtotal);
             const headerTotal = document.getElementById('header-total-' + vi);
             if (headerTotal) headerTotal.textContent = fmt(subtotal);
-            // update grand total
+            // update grand total - ambil dari masing-masing subtotal cell agar DP & kasbon ikut terhitung
             let grand = 0;
-            document.querySelectorAll('[id^="vendor-table-"]').forEach((tbl) => {
-                tbl.querySelectorAll('tbody tr').forEach(row => {
-                    const h = parseFloat(row.dataset.harga) || 0;
-                    const rid = row.dataset.id;
-                    const rt = rid ? riwayatData.find(t => t.id == rid) : null;
-                    const q = rt ? rt.qty : 0;
-                    grand += q * h;
-                });
+            document.querySelectorAll('[id^="subtotal-"]').forEach(el => {
+                const val = parseInt(el.textContent.replace(/[^0-9]/g, '')) || 0;
+                grand += val;
             });
             document.getElementById('riwayat-grand-total').textContent = fmt(grand);
         }
@@ -2394,9 +2401,8 @@
                     }
                     kasbonUsed = totalCicilanL;
                 } else {
-                    const firstDate = rows[0].tanggal;
-                    const lastDate  = rows[rows.length-1].tanggal;
-                    const dpAktif = dpData.filter(d => d.vendor === vendor && !d.sesi_id && d.tanggal >= firstDate && d.tanggal <= lastDate);
+                    // Bug 6 fix: ambil semua DP vendor yang belum punya sesi_id (tanpa filter tanggal)
+                    const dpAktif = dpData.filter(d => d.vendor === vendor && !d.sesi_id);
                     dpVal = dpAktif.reduce((s,d) => s + (d.jumlah||0), 0);
 
                     // FIX: Ambil kasbon TERAKHIR yang belum lunas
